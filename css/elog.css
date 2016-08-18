@@ -1,0 +1,580 @@
+/* 
+    Document   : elog.css
+    Created on : Apr 28, 2012, 7:59:09 AM
+    Author     : theo
+    Description:
+        Purpose of the stylesheet follows.
+*/
+
+/*
+.comment-content .field-item {
+  white-space: pre; 
+}
+*/
+
+
+
+.form-item label {
+  display:inline-block;
+  min-width: 110px;
+}
+
+div.form-item-elog-pr label{
+ float: left;
+}
+
+div.form-item-elog-pr input[type="checkbox"]{
+    width: 13px;
+    height: 13px;
+    padding: 0 0 0 2px;
+    margin:0 0 0 2px;
+    vertical-align: bottom;
+    position: relative;
+    top: -2px;
+    *overflow: hidden;
+}
+
+
+/*
+.form-item label::after {
+    content: " : ";
+} 
+*/
+
+.node-form .form-text,
+.node-form div.form-type-textfield {
+  display:inline;
+  width:auto;
+}
+
+
+
+.select2-input{
+  min-width: 180px !important;
+}
+#elog_pr_filter_form{
+    border: 1px dotted blue;
+    margin: 0 0 1.5em;
+    padding: 1em;
+    width: auto;
+}
+
+#elog_pr_filter_form select{
+    display: inline-block;
+    
+}
+
+#elog_pr_filter_form label{
+  min-width: 8em;  
+  display: inline-block;
+  font-weight: bold;
+  text-align: right;
+  padding-right: 1em;
+}
+
+#elog_pr_form {
+    border: 1px dotted blue;
+    margin: 0 0 1.5em;
+    padding: 1em;
+    width: auto;
+    max-width: 60em;
+}
+
+#elog_pr_form label{
+    min-width: 5em;
+    display: inline-block;
+}
+#elog_pr_form div.description{
+  margin-left: 5em;
+  padding-bottom: 1em;
+  font-style: italic;
+  
+}
+#elog_pr_form select{
+    display: inline-block;
+}
+
+fieldset.problem_report{
+  width: auto;
+  max-width: 60em;
+}
+div.navigation {
+    background-color: #E9E9E9;
+    text-align: center;
+    margin: 0 auto 10px auto;
+    width: 320px;
+    -moz-border-radius: 15px;
+    border-radius: 15px;
+}
+
+div.cols3 {
+-moz-column-count:3; /* Firefox */
+-webkit-column-count:3; /* Safari and Chrome */
+column-count:3;
+}
+
+#elog-form-advanced-filters div.form-actions{
+  clear: both;
+  padding-right: 5px;
+}
+
+.form-item-search-str label{
+  display: inline-block;
+}
+.inline-labels label {
+  display: inline-block;
+  padding-right: 1em;
+}
+
+#elog-form-advanced-filters div.field-wrapper{
+    padding: 1px;
+}
+
+#elog-form-advanced-filters .field-wrapper div.form-item{
+  display: inline-block;
+  clear:none;
+  width: auto;
+  padding-right:5px;
+}
+
+
+#elog-form-advanced-filters .form-item label {
+  display:inline-block;
+  min-width: 0;
+}
+
+
+div.field-wrapper{
+  clear:both;
+  padding: 5px;
+}
+form div.extref {
+  float:left;
+  padding-right: 5px;
+}
+
+form div.extref div{
+   float: left; 
+   padding-right: 5px;
+}
+
+
+ul.entrymakers {
+  margin: 0;
+}
+
+ul.entrymakers li{
+  float: left;
+  display: inline-block;
+  padding-right: 0.75em;
+}
+
+table.elog_listing{
+  line-height: 1em; 
+  table-layout:fixed;
+  width: 100%;
+}
+
+table.elog_listing a.logtitle:visited{
+  color: #8F6AAF;
+}
+
+#branding {
+    padding-left: 10px !important;
+}
+#block-system-navigation{
+  float: left;
+}
+
+div.form-item{
+  margin-top: 0.1em;
+  margin-bottom: 0.1em;
+}
+
+#block-elog-recent-entries article {
+  border: 1px black solid;
+}
+
+
+.container-inline-date .date-padding {
+    float: left;
+    padding: 1px;
+}
+
+#block-system-navigation{
+  float: left;
+}
+#block-search-form{
+  float: right;
+}
+#comments {
+  clear: both;
+}
+div.image-caption {
+  font-weight: bold;
+  width:100%;
+}
+
+
+/*
+DTM styles
+*/
+#block-elog-elog-dtm-listing .block-title a{
+    color: red;
+}
+#dtm_listing .item-list ul li {
+  list-style-image: none;
+  list-style-type: none;
+  margin: 0 0 0.25em .5em;
+  font-size: 115%;
+}
+div.dtm_area{ 
+  display: inline-block;
+  *display: inline;
+  font-weight:bold;
+  width:8em;
+  font-size: 115%;
+}
+div.dtm_title{display: inline-block; *display: inline; font-size: 120%;}
+
+div.dtm_duration{
+  display: inline-block;
+  *display: inline;
+  padding-left: 2em;
+  min-width: 14em;
+  font-size: 115%;
+}
+.dtm_yellow { color: orange;}
+.dtm_red { color: red;}
+
+
+/* Setting fixed width on the listing columns so that multiple tables
+   on the same page will look consistent */
+table.elog_listing th.lognumber{ width: 9em;}
+table.elog_listing th.needs_attention{ width: 3em;}
+table.elog_listing th.posted{  width: 6em; }
+table.elog_listing th.posted-short{  width: 4em; }
+table.elog_listing th.posted-full{  width: 8em; }
+table.elog_listing th.author{width: 5em;}
+table.elog_listing th.icons{ width: 4em; }
+table.elog_listing th.logbooks{width: 8em;}
+table.elog_listing th.tags{ width: 8em;}
+table.elog_listing th.system{ width: 10em;}
+table.elog_listing th.group{ width: 8em;}
+table.elog_listing th.assignee{ width: 7em;}
+table.elog_listing th.title{ min-width: 10em; width: auto;}
+
+table.elog_listing td{ overflow:hidden; white-space:normal;  }
+
+/* smartphone_landscape one_col_stack */
+@media only screen and (min-width:100px) and (max-width:768px) {
+  table.elog_listing td.author{ display: none; }
+  table.elog_listing th.author{ display: none; }
+  table.elog_listing td.logbooks{ display: none; }
+  table.elog_listing th.logbooks{ display: none; }
+  #content { min-width: 400px;}
+}
+
+
+div.iconsbox{
+  float:right;
+  min-width: 48px;
+}
+/* We use a background image on a div for the icons so that themes can
+   override in css if desired */
+div.comments-icon{
+  background-image: url("../img/stock_draw-callouts-16.png");
+  display: inline-block;
+  /* float:right; */
+  margin-left: 5px;
+  width: 16px;
+  height: 16px;
+}
+
+div.attachments-icon{
+  background-image: url("../img/paperclip2.png");
+  display: inline-block;
+  /* float:right;*/
+  margin-left: 5px;
+  width: 16px;
+  height: 15px;
+}
+
+div.downtime-icon{
+  background-image: url("../img/dt_clock.png");
+  display: inline-block;
+  /* float:right;*/
+  margin-left: 5px;
+  width: 16px;
+  height: 16px;
+}
+
+div.opspr-icon{
+  background-image: url("../img/stock_navigator-insert-as-link-16.png");
+  display: inline-block;
+  /* float:right;*/
+  margin-left: 5px;
+  width: 16px;
+  height: 16px;
+}
+
+div.pr-attention{
+  background-image: url("../img/pr_redflag.png");
+  display: inline-block;
+  /* float:right;*/
+  margin-left: 5px;
+  width: 16px;
+  height: 16px;
+}
+
+div.pr-resolved{
+  background-image: url("../img/pr_greenflag.png");
+  display: inline-block;
+  /* float:right;*/
+  margin-left: 5px;
+  width: 16px;
+  height: 16px;
+}
+
+
+table.taxonomy_listing thead th.taxonomy-name {
+  width: 20%;
+}
+
+
+article.node-teaser {
+    border-bottom: 1px dotted;
+}
+
+article figure.field-item{
+    float: left;
+    padding-right: 10px;
+}
+
+article figure.field-item img{
+     margin-right: 15px;
+}
+#elog-calendar .ui-datepicker {
+width: 90%; /*what ever width you want*/
+min-width: 200px;
+margin: auto;
+}
+
+
+a.Readme:link, a.Readme:visited, a.Readme:active {
+    color: red;
+}
+.Readme a:link, .Readme a:visited, .Readme a:active{
+  color: red;
+}
+a.Readme { 
+  color: red;
+}
+
+h2.headlines-groupby{
+  background-color:  #EEEEEE; 
+  
+}
+
+div.attachment-box div{
+  display:inline-block;
+  padding-right: 10px;
+}
+
+div.comments-box{
+  margin: 10px 0;
+}
+
+div.next, div.prev {
+display: inline-block;
+margin-left:2em;
+}
+
+pre.elogtext{
+ white-space: pre-wrap;       /* css-3 */
+ white-space: -moz-pre-wrap;  /* Mozilla, since 1999 */
+ white-space: -pre-wrap;      /* Opera 4-6 */
+ white-space: -o-pre-wrap;    /* Opera 7 */
+ word-wrap: break-word;       /* Internet Explorer 5.5+ */
+}
+
+#columns{
+margin: 0 10px;
+}
+
+div.pane-node-comments{
+border-top: 1px solid #555555;
+}
+
+div.sidebar label{
+  display: inline-block;
+}
+
+
+table.views-table th{
+text-align: left;
+padding: 0.25em;
+}
+
+table.views-table td{
+padding: 0.25em;
+}
+
+
+div.panel-col-first div.views-exposed-form{
+border-top: 1px solid #555555;
+border-bottom: 1px solid #555555;
+line-height: 1em;
+}
+
+#site-name {
+margin-left: 15px;
+padding-left: 1em;
+}
+
+#branding{
+margin-left: 15px;
+}
+
+.item-list ul, .item-list ol {
+    margin: 0 0 0 15px;
+    padding: 0;
+}
+
+div.view-id-logbook_useful_links ul{
+  margin: 0 0 0 15px;
+}
+
+div.view-id-logbook_useful_links ul li{
+
+ margin-left: 0.25em;
+}
+
+div.pane-node-title{
+    color: #6889AE;
+    font-size: 1.4em;
+    font-weight: bold;
+    margin-right: 2em;
+    text-align: left;
+}
+
+
+/* Make logbooks selections form neater? */
+ul.term-reference-tree-level{
+width: 60em;
+}
+
+ul.term-reference-tree-level div.parent-term {
+display: inline-block;
+width: 10em;
+clear: right;
+padding-left: 1em;
+}
+
+ul.term-reference-tree-level li {
+display: inline-block;
+width: 100%;
+padding-left: 1em;
+}
+
+ul.term-reference-tree-level li li{
+display: inline-block;
+width: auto;
+min-width: 8em;
+padding-left: 1em;
+}
+
+/*
+#block-elog-listing-filters h2.block-title{
+  display: none;
+}
+*/
+#block-elog-listing-sticky {
+  border-top:2px gray double;
+  border-bottom:2px gray double;
+}
+
+#block-elog-listing-sticky h2 {
+ text-align: center;
+}
+
+/* A more subtle header for sticky entries */
+#block-elog-listing-sticky h2.block-title{
+background-color: none;
+color: inherit;
+background: none repeat scroll 0 0 #ffffff;
+}
+
+#edit-tags--2 label{
+  float: none;
+}
+
+#edit-field-tags div.form-type-checkbox{
+  float: left;
+  padding-left: 4px;
+}
+
+#edit-tags--2 div.form-type-checkbox{
+  float: left;
+  padding-left: 4px;
+}
+div.description{
+  clear:left;
+}
+
+#block-user-login div.block-content{
+border: none;
+padding: 0;
+}
+
+#block-system-user-menu div.block-content{
+border: none;
+padding: 0;
+}
+#block-system-user-menu .block-inner {
+    background: none;
+}
+
+#block-user-login .block-inner {
+    background: none;
+}
+
+.block-inner {
+    background: none repeat scroll 0 0 #ffffff;
+}
+#site-name{
+  padding-left: 10px;
+}
+
+div.prev-next{
+  overflow: hidden;
+  text-align: center;
+  padding: 5px 10px;
+}
+span.next-link{
+  display: inline-block;
+  float: right;
+}
+span.prev-link{
+  display: inline-block;
+  float: left;
+}
+
+
+.comment.odd {
+    background-color: #EEEEEE;
+}
+.comment.even {
+    background-color: #DDDDDD;
+}
+
+/* The date API doesn't provide a way to specify the size of
+   a date popup time input, so we force it here. */
+#edit-start-date-timeEntry-popup-1, #edit-end-date-timeEntry-popup-1 {
+    width: 4em;
+}
+
+div.container-inline-date label{
+  display: block;
+  
+}

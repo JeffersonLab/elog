@@ -1,0 +1,2047 @@
+<?php
+
+/**
+ * @file
+ * The Jefferson Lab Electronic Logbook Drupal Module.
+ *
+ * Implements the business logic for dealing with Logentry entities. 
+ */
+// @todo Can these be conditional includes?
+include_once('inc/admin.inc');
+include_once('inc/blocks.inc');
+include_once('inc/forms.inc');
+include_once('inc/helpers.inc');
+include_once('inc/pages.inc');
+include_once('inc/taxonomy.inc');
+include_once('inc/preprocess.inc');
+
+
+// @todo Move these constants into drupal variabless with admin interface.
+// So we won't server inaccessible internal links to
+// external browsers who can't access them.
+//define('INTRANET', '129.57.');
+//define('EMAIL_DOMAIN', '@jlab.org');
+//define('ELOG_ERA', '2009-01-01');
+//
+//
+//define('ELOG_DTM_DATA','https://accweb.acc.jlab.org/dtm/data/events');
+//define('ELOG_DTM_OPEN_EVENTS','https://accweb.acc.jlab.org/dtm/open-events');
+//
+//
+// The starting sequence for non-legacy entries
+// lognumbers below this are reserved for importing
+// entries from legacy systems
+//define('FIRST_LOGNUMBER', 3000000);
+// Where public:// urls really live in the file system
+// @todo is there a drupal way to get this?
+//define('PUBLIC_DIR', '/www/logbooks/html/files');
+// Where we save an archive XML version of any logentry that gets deleted
+//define('LOGENTRY_DELETED_DIR','/www/logbooks/files/deleted');
+//@todo make these a module configuration setting.
+$GLOBALS['logbook_display_settings'] = array(
+  'hide_autologs' => 0,
+  'entries_per_page' => '50',
+  'group_by' => 'SHIFT',
+  'listing_format' => 'table',
+  'enable_preview' => 0,
+  'table_date' => 'created',
+);
+
+/**
+ * Implements hook_menu()
+ * @return array 
+ * @todo book/%/rss
+ * @todo tag/%/rss
+ * @todo entry/%/json
+ * 
+ */
+function elog_menu() {
+  $items = array();
+
+  // Creates a block on the admin page where other elog modules can 
+  // place their settings.
+  $items['admin/config/elog'] = array(
+    'title' => 'Elog',
+    'description' => 'Electronic Logbook Module Settings',
+    'position' => 'left',
+    'weight' => -15,
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('access administration pages'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+
+  $items['admin/config/elog/general'] = array(
+    'title' => 'General',
+    'description' => 'Configuration for general Elog settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('elog_settings_form'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['test/%'] = array(
+    'title callback' => 'Test',
+    'page callback' => 'elog_test',
+    'page arguments' => array(1),
+    'access arguments' => array('access content'),
+  );
+
+  $items['comments/%'] = array(
+    'page callback' => 'elog_comments_by_entry',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(1),
+    'access arguments' => array('access content'),
+  );
+
+
+  $items['elog/preferences'] = array(
+    'title' => 'Preferences',
+    'type' => MENU_NORMAL_ITEM,
+    'load arguments' => array('%map', '%index'),
+    'page callback' => 'elog_preferences',
+    'access callback' => 'user_is_logged_in',
+  );
+
+  $items['refresh/%'] = array(
+    'file' => 'inc/callback.inc',
+    'page callback' => 'elog_refresh',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(1, 2),
+    'access arguments' => array('access content'),
+  );
+
+  $items['addtag/%/%'] = array(
+    'file' => 'inc/callback.inc',
+    'page callback' => 'elog_add_tag',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(1, 2),
+    'access arguments' => array('acess content'),
+  );
+
+  $items['delete/%/%'] = array(
+    'file' => 'inc/callback.inc',
+    'page callback' => 'elog_delete',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(1, 2),
+    'access arguments' => array('administer content'),
+  );
+
+  $items['entries'] = array(
+    'page callback' => 'main_listing',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(1),
+    'access arguments' => array('access content'),
+  );
+
+  // keep this commented out until can test from off-site
+//  $items['incoming/%'] = array(
+//    'file' => 'inc/put.inc',
+//    'type' => MENU_CALLBACK,
+//    'page callback' => 'elog_incoming',
+//    'access arguments' => array('access content'),
+//  );
+
+  $items['logbooks/json'] = array(
+    'file' => 'inc/callback.inc',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'logbooks_json',
+    'access arguments' => array('access content'),
+  );
+
+  $items['logbooks/xsd'] = array(
+    'file' => 'inc/callback.inc',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'logbooks_xsd',
+    'access arguments' => array('access content'),
+  );
+
+  $items['tags'] = array(
+    'title' => 'Tags',
+    'page callback' => 'taxonomy_terms_listing',
+    'page arguments' => array('Tags'),
+    'access arguments' => array('access content'),
+  );
+
+
+  $items['tags/view'] = array(
+    'title' => 'View',
+    'weight' => 10,
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'page callback' => 'taxonomy_terms_listing',
+    'page arguments' => array('Tags'),
+    'access arguments' => array('access content'),
+  );
+
+  $items['tags/administer'] = array(
+    'title' => 'Administer',
+    'weight' => 20,
+    'file' => 'inc/callback.inc',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'elog_tags_admin',
+    'access arguments' => array('administer tags vocabulary terms'),
+  );
+
+  $items['tags/xsd'] = array(
+    'file' => 'inc/callback.inc',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'elog_tags_xsd',
+    'access arguments' => array('access content'),
+  );
+
+  // This link is only shown to users who have not
+  // logged in.  Drupal won't show them the real menu item
+  // because they don't have access to create content.
+  // We will forward them from this bogus path and
+  // rely on the Redirect 403 moduleto redirect them to the 
+  // login page first.
+  $items['add/content'] = array(
+    'title' => 'Add Content',
+    'page callback' => 'elog_node_add',
+    'page arguments' => array(1),
+    'access callback' => 'user_is_anonymous',
+  );
+
+  $items['logbooks'] = array(
+    'title' => 'Logbooks',
+    'page callback' => 'taxonomy_terms_listing',
+    'page arguments' => array('Logbooks'),
+    'access arguments' => array('access content'),
+  );
+
+  // We need this item in addition to node/%/xml
+  // The latter gets called when we enable path_alias_xt module.
+  $items['entry/%/xml'] = array(
+    'page callback' => 'entry_xml_output',
+    'file' => 'inc/callback.inc',
+    'page arguments' => array(1),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+  );
+
+
+
+  $items['entrymaker/autocomplete'] = array(
+    'title' => 'Autocomplete for entrymaker',
+    'page callback' => 'entrymaker_autocomplete',
+    'file' => 'inc/callback.inc',
+    'access arguments' => array('Logentry: Create new content'),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['email/autocomplete'] = array(
+    'title' => 'Autocomplete for email addresses',
+    'page callback' => 'email_autocomplete',
+    'file' => 'inc/callback.inc',
+    'access arguments' => array('Logentry: Create new content'),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['reference/autocomplete'] = array(
+    'title' => 'Autocomplete for references',
+    'page callback' => 'references_autocomplete',
+    'file' => 'inc/callback.inc',
+    'access arguments' => array('Logentry: Create new content'),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  //Invoke the url below from cron to send
+  //emails with correct paths. 
+  //wget  /usr/bin/wget --no-check-certificate -O "-" https://logbooks.jlab.org/email/send
+  $items['email/send'] = array(
+    'title' => 'Send out pending email',
+    'page callback' => 'elog_process_email_queue',
+    'file' => 'inc/callback.inc',
+    'access arguments' => array('access content'),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+
+  return $items;
+}
+
+/**
+ * Implements hook_menu_alter().
+ * Note that unlike in hook_menu where paths are relative to the module,
+ * here we need to provide full path when we do a file include for a menu
+ * callback.
+ */
+function elog_menu_alter(&$items) {
+
+  //Don't let users ever see the page to request a new password.
+  $items['user/password']['access callback'] = 'elog_always_false';
+
+  // We need this item in addition to entry/%/xml
+  // The latter gets called when we disable path_alias_xt module.
+  $items['node/%/xml'] = array(
+    'page callback' => 'node_xml_output',
+    'file' => drupal_get_path('module', 'elog') . '/inc/callback.inc',
+    'page arguments' => array(1),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+  );
+
+  $items['user/%/comments'] = array(
+    'title' => 'Comments',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'elog_user_comments',
+    'page arguments' => array(1),
+    'access arguments' => array('access content'),
+  );
+
+  $items['user/%/entries'] = array(
+    'title' => 'Log Entries',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'elog_user_entries',
+    'page arguments' => array(1),
+    'access arguments' => array('access content'),
+  );
+
+  $items['user/%/preferences'] = array(
+    'title' => 'Preferences',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'elog_user_prefs_page',
+    'page arguments' => array(1),
+    'access callback' => 'elog_user_may_edit_prefs',
+    'access arguments' => array(1),
+  );
+
+  $items['node/%/followup'] = array(
+    'title' => 'Post Follow-up Entry',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'elog_followup',
+    'page arguments' => array(1),
+    'access callback' => 'elog_user_may_followup',
+    'access arguments' => array(1),
+  );
+
+//    $items['user/%elog_uid_optional/preferences'] = array(
+//    'title' => 'My Prefs',
+//    'type' => MENU_NORMAL_ITEM,
+//    'load arguments' => array('%map', '%index'),
+//    'access callback' => 'user_is_logged_in',
+//  );
+  // We want to provide out own callback for certain
+  // types of taxonomy terms
+  $items['taxonomy/term/%taxonomy_term'] = array(
+    'title' => 'Table',
+    'type' => MENU_NORMAL_ITEM,
+    'title callback' => 'taxonomy_term_title',
+    'title arguments' => array(2, 3),
+    'page callback' => 'elog_taxonomy_router',
+    'page arguments' => array(2, 3),
+    'access arguments' => array('access content'),
+  );
+  //mypr($items); die;
+}
+
+/**
+ * implement HOOK_date_popup_process_alter()
+ */
+function elog_date_popup_process_alter(&$element, &$form_state, &$context) {
+  if (isset($element['#name'])) {
+    switch ($element['#name']) {
+      case 'end_date':
+      case 'start_date': {
+          $element['#date_year_range'] = '-5:+1';   //@todo autocalculate this
+          $element['date'] = date_popup_process_date_part($element);
+        }
+        break;
+    }
+  }
+}
+
+/**
+ * Imeplements hook_js() of the js module.
+ * Note that we hacked (two search-and-replaces) the copy 
+ * of js.php in the drupal root to work with /api as the path
+ * rather than /js
+ * @return type
+ */
+function elog_js() {
+  return array(
+    'logbooks' => array(// /api/elog/logbooks
+      'callback' => 'elog_api_logbooks',
+      'dependencies' => array('taxonomy', 'elog'),
+      'bootstrap' => DRUPAL_BOOTSTRAP_DATABASE,
+      'file' => 'inc/api.inc',
+      'skip_hook_init' => FALSE,
+    ),
+    'tags' => array(// /api/elog/tags
+      'callback' => 'elog_api_tags',
+      'dependencies' => array('taxonomy', 'elog'),
+      'bootstrap' => DRUPAL_BOOTSTRAP_DATABASE,
+      'file' => 'inc/api.inc',
+      'skip_hook_init' => FALSE,
+    ),
+    'entries' => array(// /api/elog/entries
+      'callback' => 'elog_api_entries',
+      'dependencies' => array('taxonomy', 'elog', 'entity', 'field'),
+      'bootstrap' => DRUPAL_BOOTSTRAP_FULL,
+      'file' => 'inc/api.inc',
+      //'access arguments' => array('e.g. permission'),
+      //'access callback'  => 'callback function',
+      'page arguments' => array(1),
+      'skip_hook_init' => FALSE,
+    ),
+    'announcements' => array( // /api/elog/announcements
+      'callback' => 'elog_api_announcements',
+      'dependencies' => array('elog'),
+      'bootstrap' => DRUPAL_BOOTSTRAP_DATABASE,
+      'file' => 'inc/api.inc',
+      'skip_hook_init' => FALSE,
+    ),
+  );
+}
+
+/**
+ * Implements hook_init
+ */
+function elog_init() {
+  drupal_add_library('system', 'ui.core');
+  drupal_add_library('system', 'ui.datepicker');
+  drupal_add_library('system', 'jquery.cookie');
+
+  // Send X-UA-Compatible HTTP header to force IE to use the most recent
+  // rendering engine or use Chrome's frame rendering engine if available. It is
+  // not possible to use drupal_add_http_header() as Drupal 7 does not store
+  // HTTP headers in the page cache.  We have to provide a low weight so that the 
+  // X-UX-Compatible header comes (nearly) first or IE won't honor it.
+  $element = array(
+    '#tag' => 'meta',
+    '#weight' => -200,
+    '#attributes' => array(
+      'http-equiv' => 'X-UA-Compatible',
+      'content' => 'IE=edge',
+    ),
+  );
+  drupal_add_html_head($element, 'x_ua_compatible');
+}
+
+/**
+ * Implements hook_entity_info_alter().
+ */
+function elog_entity_info_alter(&$entity_info) {
+  $entity_info['node']['view modes']['elog_email'] = array(
+    'label' => t('Email'),
+    'custom settings' => TRUE,
+  );
+}
+
+/**
+ * Implement hook_help().
+ */
+function elog_help($path, $arg) {
+  if ($path == 'admin/help#elog') {
+    return t('Elog brings the features of Jefferson Lab Electronic Logbook 
+  to Drupal.');
+  }
+}
+
+/**
+ * implements hook_action_info
+ */
+function elog_action_info() {
+  return array(
+    'elog_comment_prior_commenters_action' => array(
+      'type' => 'comment',
+      'label' => t('Notify Prior Commenters'),
+      'configurable' => FALSE,
+      'triggers' => array('comment_insert', 'comment_update'),
+    ),
+    'elog_comment_notify_node_author_action' => array(
+      'type' => 'comment',
+      'label' => t('Notify Elog Author of Comment'),
+      'configurable' => FALSE,
+      'triggers' => array('comment_insert', 'comment_update'),
+    ),
+  );
+}
+
+/**
+ * Function to be called from hook_action_info
+ * Automatically notifies prior commenters when a new comment is posted
+ */
+function elog_comment_prior_commenters_action($object = NULL, $context = NULL, $a1 = NULL, $a2 = NULL) {
+  return;
+//  mypr($object);
+//  mypr($context);
+//  $parent = comment_load($object->pid);
+//  mypr($parent);
+//  $orig_author = user_load($parent->uid);
+//  mypr($orig_author);
+  //elog_schedule_email($to, $from, $subject_prefix, $nid)
+  //die;
+}
+
+/**
+ * Function to be called from hook_action_info
+ * Automatically notifies the author of a posting of a comment
+ */
+function elog_comment_notify_node_author_action($object = NULL, $context = NULL, $a1 = NULL, $a2 = NULL) {
+  if (isset($object) && isset($object->nid)) {
+    $node = node_load($object->nid);
+    $node_author = user_load($node->uid);
+    $commenter = user_load($object->uid);
+    if ($node_author->mail && $commenter->mail) {
+      elog_schedule_email($node_author->mail, $commenter->mail, '[New Comment]', $object->nid, $object->cid);
+    }
+  }
+}
+
+function elog_node_load($nodes, $types) {
+  if (module_exists('elog_pr')) {
+    foreach ($nodes as $node) {
+      $node->problem_report = entity_load_single('elog_pr', $node->nid);
+    }
+  }
+}
+
+/**
+ * Implements hook_node_view
+ * @see http://drupal.org/node/232310
+ * @param stdClass $node
+ * @param string $view_mode
+ */
+function elog_node_view($node, $view_mode) {
+  // Tell it which view_mode to change, 'full', 'teaser', etc.
+  if ($view_mode == 'full') {
+    //mypr($node);
+    // Take out the link by unsetting it.
+    if (array_key_exists('comment_forbidden', $node->content['links']['comment']['#links'])) {
+      //unset($node->content['links']['comment']['#links']['comment_forbidden']);
+    }
+  }
+}
+
+/**
+ * Implements hook_comment_view
+ * @see http://drupal.org/node/232310
+ * @param stdClass $node
+ * @param string $view_mode
+ */
+function elog_comment_view($comment, $view_mode) {
+  // Tell it which view_mode to change, 'full', 'teaser', etc.
+  if ($view_mode == 'full') {
+    // Take out the link by unsetting it.
+    if (array_key_exists('comment_forbidden', $comment->content['links']['comment']['#links'])) {
+      //unset($comment->content['links']['comment']['#links']['comment_forbidden']);
+    }
+  }
+}
+
+/**
+ * Allows a constant link to redirect current user to prefs page
+ * @global type $user
+ */
+function elog_preferences() {
+  global $user;
+  drupal_goto("user/$user->uid/preferences");
+}
+
+/**
+ * Hack to support having an "Add Content" link for anonymous users
+ * Goes with the menu item add/content
+ */
+function elog_node_add() {
+  drupal_goto('node/add');
+}
+
+/**
+ * Validates whether there are figure to match all of the 
+ * [figure:n] tokens in the body.
+ * @param type $body  The text body to scan
+ * @param type $field_image The images array to compare against
+ * @return boolean
+ */
+function validate_figure_substitutions($body, $field_image) {
+  //If the body contains any tokens of the form [figure:n],
+  //we want to verify there is an attached image $field_image[n-1]
+  if (preg_match_all('/\[figure:\d+\]/mi', $body, $m)) {
+    foreach ($m[0] as $token) {
+      if (preg_match('/^\[figure:(\d+)\]$/i', $token, $t)) {
+        $image_num = $t[1] - 1;
+        if (!array_key_exists($image_num, $field_image)) {
+          return FALSE;
+        }
+      }
+    }
+  }
+  return TRUE;
+}
+
+/**
+ * Validates the notify text field
+ * Because the field may contain comma-delimited list of email addresses
+ * we have to do custom validation rather than simply using the Drupal
+ * email module.
+ * @param array $element
+ * @param array $form_state
+ * @param array $form
+ * @todo replace the simple @-sign check with fuller validation
+ * @todo append @jlab.org to unqualified strings
+ */
+function elog_notify_validate($element, &$form_state, $form) {
+  $errors = array();
+  $addr_list = array_map('trim', explode(',', $element[0]['value']['#value']));
+  foreach ($addr_list as $addr) {
+    if ($addr && !stristr($addr, '@')) {
+      $errors[] = $addr;
+    }
+  }
+  if (count($errors) > 0) {
+    form_set_error($element['#field_name'], 'The following are not valid email addresses: ' . implode(', ', $errors));
+  }
+}
+
+/**
+ * Converts the multiple comma-separated values that came in as a single
+ * text input and converts them into standard drupal multi-values
+ * 
+ * @param array $form_state
+ * @param string $field the name of the field
+ */
+function elog_explode_delimited_input(&$form_state, $field) {
+  $values = explode(',', $form_state['values'][$field]['und'][0]['value']);
+  foreach ($values as $i => $val) {
+    if ($val) {
+      $form_state['values'][$field]['und'][$i]['value'] = trim($val);
+      $form_state['values'][$field]['und'][$i]['_weight'] = $i;
+    }
+  }
+}
+
+/**
+ * implements hook_field_extra_fields
+ * Make content for the user page
+ *
+ * @see http://www.computerminds.co.uk/drupal-code/add-stuff-node-and-configure-it-fields
+ */
+function elog_field_extra_fields() {
+  // The levels of the array that we return correspond to the
+  // entity type, bundle and then either 'display' or 'form'.
+  // In this case, we apply to 'page' nodes, when we display them.
+  $extra['user']['user']['display'] = array(
+    'elog_user_entries' => array(
+      'label' => t('User Entry Links'),
+      '#label_display' => 'inline',
+      'description' => t('Link to entries authored by the user'),
+      'weight' => 10,
+    ),
+  );
+  return $extra;
+}
+
+/**
+ * Returns a render array of links to entries, comments, prs, etc. 
+ * for a user.
+ * @param type $account
+ */
+function _elog_get_user_entries_links($account) {
+  $path = 'user/' . $account->uid . '/entries';
+  $text = t('View log entries submitted by user @name', array('@name' => $account->name));
+  $links[] = l($text, $path);
+
+  $path = 'user/' . $account->uid . '/comments';
+  $text = t('View comments by user @name', array('@name' => $account->name));
+  $links[] = l($text, $path);
+
+  $path = 'user/' . $account->uid . '/pr';
+  $text = t('View Problem Reports tasked to user @name', array('@name' => $account->name));
+  $links[] = l($text, $path);
+
+  $ret = array('links' => array(
+      '#theme' => 'item_list',
+      '#items' => $links,
+//      '#attributes' => array('class' => array('elog_pr_changes')),
+    ),
+  );
+  return $ret;
+}
+
+/**
+ * Implements hook_user_view
+ * @param type $account
+ * @param type $view_mode
+ * @param type $langcode
+ */
+function elog_user_view($account, $view_mode, $langcode) {
+
+  $account->content['elog_user_entries'] = array(
+    '#type' => 'item',
+    '#label_display' => 'inline',
+    // '#title' => t('Entries authored: '),
+    'entries' => _elog_get_user_entries_links($account),
+  );
+}
+
+/**
+ * Validates a comment form submission
+ */
+function elog_comment_validate($form, &$form_state) {
+
+  // Entrymakers arrives with multiple items in a single input
+  elog_explode_delimited_input($form_state, 'field_notify');
+  //mypr($form);
+  //mypr($form_state);
+  //die;
+}
+
+/**
+ * Implements hook_node_validate
+ */
+function elog_node_validate($node, $form, &$form_state) {
+  if ($node->type == 'logentry') {
+    $lang = $node->language;
+    $body = $node->body[$lang][0]['value'];
+    $images = $node->field_image[$lang];
+
+    // Entrymakers arrives with multiple items in a single input
+    elog_explode_delimited_input($form_state, 'field_entrymakers');
+    elog_explode_delimited_input($form_state, 'field_notify');
+
+    // The last one is the upload button field?
+    // We pop it off to avoid treating it as a 
+    // valid attachment
+    array_pop($images);
+
+    if (!$result = validate_figure_substitutions($body, $images)) {
+      form_set_error('body', 'One or more inline figure references is invalid');
+    }
+
+
+    // Verify that any submitted log references are valid
+    //mypr($node); 
+    $references = $node->field_references[$lang];
+    foreach ($references as $delta => $r) {
+      //mypr($r);
+
+      if (!is_numeric($r['value'])) {
+        continue;
+      }
+      //mypr($form); die;
+      if ($r['value'] == elog_get_lognumber($form['#node'])) {
+
+        $msg = t("Invalid reference.  A logentry may not reference itself", array('!value' => $r['value']));
+        form_set_error('field_references', $msg);
+      }
+
+      if (!NodeUtil::nidFromLognumber($r['value'])) {
+        $msg = t("Invalid reference.  !value is not a valid lognumber.", array('!value' => $r['value']));
+        form_set_error('field_references', $msg);
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_field_widget_WIDGET_TYPE_form_alter().
+ * @see hook_field_widget_WIDGET_TYPE_form_alter()
+ */
+function elog_field_widget_text_textfield_form_alter(&$element, &$form_state, $context) {
+  //mypr($element);
+  // Alters field to enable autocomplete even if there is more than
+  // one instance.
+  if ($element['#field_name'] == 'field_entrymakers') {
+    $element['value']['#autocomplete_path'] = 'entrymaker/autocomplete';
+  }
+  //if ($element['#field_name'] == 'field_references') {
+  //  $element['value']['#autocomplete_path']='reference/autocomplete';
+  //}
+  if ($element['#field_name'] == 'field_notify') {
+    $element['value']['#autocomplete_path'] = 'email/autocomplete';
+  }
+}
+
+/**
+ * Implements hook_field_widget_WIDGET_TYPE_form_alter().
+ * @see hook_field_widget_WIDGET_TYPE_form_alter()
+ */
+function elog_field_widget_number_form_alter(&$element, &$form_state, $context) {
+  // Alters field to enable autocomplete even if there is more than
+  // one instance.
+  if ($element['value']['#field_name'] == 'field_references') {
+    $element['value']['#autocomplete_path'] = 'reference/autocomplete';
+    $element['value']['#size'] = '60';
+    if (isset($_REQUEST['followup']) && $context['delta'] == 0) {
+      $element['value']['#default_value'] = $_REQUEST['followup'];
+    }
+  }
+}
+
+/**
+ * Implements hook_field_widget_WIDGET_TYPE_form_alter().
+ * @see hook_field_widget_WIDGET_TYPE_form_alter()
+ */
+function elog_field_widget_elog_extref_form_form_alter(&$element, &$form_state, $context) {
+  if ($element['#field_name'] == 'field_extern_ref') {
+    if (isset($_REQUEST['reference']) && $context['delta'] == 0) {
+      if (preg_match('/^([\w]+):([\d]+)$/', $_REQUEST['reference'], $m)) {
+        $ref_name = $m[1];
+        $ref_id = $m[2];
+        $element['ref_name']['#default_value'] = $ref_name;
+        $element['ref_id']['#default_value'] = $ref_id;
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_field_widget_WIDGET_TYPE_form_alter().
+ * @see hook_field_widget_WIDGET_TYPE_form_alter()
+ */
+function elog_field_widget_email_textfield_form_alter(&$element, &$form_state, $context) {
+  //mypr($element);
+  // Alters field to enable autocomplete even if there is more than
+  // one instance.
+  if ($element['#field_name'] == 'field_email') {
+    $element['email']['#autocomplete_path'] = 'email/autocomplete';
+  }
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function elog_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+
+  // Abstract over the actual field columns, to allow different field types to
+  // reuse those widgets.
+  $value_key = key($field['columns']);
+
+  //mypr($items);
+  $type = str_replace('options_', '', $instance['widget']['type']);
+  $multiple = $field['cardinality'] > 1 || $field['cardinality'] == FIELD_CARDINALITY_UNLIMITED;
+  $required = $element['#required'];
+  $has_value = isset($items[0][$value_key]);
+
+  $settings = $instance['widget']['settings']; // + field_info_widget_settings($instance['widget']['type']);
+  //mypr($type);
+  //mypr($form);
+  switch ($type) {
+    case 'elog_taxonomy_select2' :
+      $vocab = $field['settings']['allowed_values'][0]['vocabulary'];
+
+      $properties = _elog_widgets_options_properties($type, $multiple, $required, $has_value);
+      $entity_type = $element['#entity_type'];
+      $entity = $element['#entity'];
+      // Prepare the list of options.
+      $options = _elog_widgets_get_taxonomy_tree_options($vocab);
+      //mypr($options);
+      // Put current field values in shape.
+      $default_value = _options_storage_to_form($items, $options, $value_key, $properties);
+      //mypr($default_value);
+      // mypr($element);
+      $element += array(
+        '#type' => 'select',
+        '#default_value' => $default_value,
+        // Do not display a 'multiple' select box if there is only one option.
+        '#multiple' => $multiple && count($options) > 1,
+        '#options' => $options,
+        '#process' => array('elog_widgets_process_callback'),
+        '#value_key' => $value_key,
+        '#element_validate' => array('elog_widgets_field_widget_validate'),
+          //'#properties' => $properties,
+          //'#attributes' => array('class' => array('select2')),
+      );
+      //mypr($element);
+      break;
+  }
+
+
+  return $element;
+}
+
+/**
+ * Implements hook_field_widget_info().
+ */
+function elog_field_widget_info() {
+  $widgets['elog_taxonomy_select2'] = array(
+    'label' => t('Elog Taxonomy Select2'),
+    'field types' => array(
+      'taxonomy_term_reference',
+    ),
+    'behaviors' => array(
+      'multiple values' => FIELD_BEHAVIOR_CUSTOM,
+      'default value' => FIELD_BEHAVIOR_CUSTOM,
+    ),
+    'settings' => array(
+      'leaves_only' => 1,
+      'max_depth' => 2,
+    ),
+  );
+
+  return $widgets;
+}
+
+/**
+ * Compacts a multiple occurence field where drupal will want to
+ * have multiple text inputs and "add more" button into a single
+ * text input that can accept comma-delimited multiple values.
+ * 
+ * @param array $form  
+ * @param string $field the name of the field to compact
+ */
+function elog_collapse_multi_input(&$form, $field) {
+  $lang = $form['language']['#value'];
+
+  // zap the "add more" from fields where we want to use delimited
+  // multi-select autocomplete.
+  $form[$field][$lang]['#prefix'] = '';
+  $form[$field][$lang]['#suffix'] = '';
+  //$form[$field][$lang]['#theme'] = '';
+  unset($form[$field][$lang]['add_more']);
+
+  // Drupal will want to display multiple values each as its
+  // own text input.  We want to change that to a single input
+  // with comma-separate values
+  if (array_key_exists('#max_delta', $form[$field][$lang])) {
+    if ($form[$field][$lang]['#max_delta'] > 0) {
+      for ($i = 0; $i <= $form[$field][$lang]['#max_delta']; $i++) {
+        $maker = $form[$field][$lang][$i]['value']['#default_value'];
+        if ($maker) {
+          $entrymakers[$i] = $maker;
+        }
+        //print "$i: ".$form[$field][$lang][$i]['value']['#default_value']."\n<br>";
+        if ($i > 0) {
+          unset($form[$field][$lang][$i]);
+        }
+      }
+      $form[$field][$lang]['#max_delta'] = 1;
+      $form[$field][$lang][0]['value']['#default_value'] = implode(', ', $entrymakers);
+    }
+  }
+}
+
+function elog_user_prefs_page($arg) {
+  $form = drupal_get_form('elog_form_user_prefs', $arg);
+  return render($form);
+}
+
+/**
+ * Goes to list of entries by author
+ */
+function elog_user_entries($uid) {
+  $account = user_load($uid);
+  drupal_goto('entries', array('query' => array('author' => $account->name)));
+}
+
+
+/**
+ * implements hook_form_FORM_ID_alter
+ * @param type $form
+ * @param type $form_state
+ * @param type $form_id
+ */
+function elog_form_user_profile_form_alter(&$form, &$form_state, $form_id) {
+  global $user;
+  //mypr($form);
+  // Only root can see certain standard fields
+  if ($user->uid > 1) {
+    $form['account']['name']['#access'] = FALSE;
+    $form['account']['pass']['#access'] = FALSE;
+    $form['account']['current_pass']['#access'] = FALSE;
+    $form['account']['mail']['#access'] = FALSE;
+    $form['field_first_name']['#access'] = FALSE;
+    $form['field_last_name']['#access'] = FALSE;
+    $form['is_pseudo_user']['#access'] = FALSE;
+  }
+
+  //mypr($form); 
+  //$form['actions']['submit']['#submit'][]='elog_form_user_profile_form_submit';
+}
+
+//function elog_user_prefs_form_submit($form, &$form_state){
+//    mypr($form_state);
+//    mypr($form);
+//    mypr($user->data);
+//    if (count($form_state['values']['frontpage_logbooks']) > 0){
+//      $account = user_load_by_name($form_state['values']['name']);
+//      $account->data['elog_frontpage_logbooks'] = array();
+//      foreach ($form_state['values']['frontpage_logbooks'] as $delta => $selected){
+//        foreach ($selected as $tid){
+//          $account->data['elog_frontpage_logbooks'][$tid] = $tid;
+//        }
+//      }
+//      user_save($account, array('data'=>$account->data));
+//    }
+//    $account = user_load_by_name($form_state['values']['name']);
+//    mypr($account); die;
+//}
+
+/**
+ * implements hook_form_FORM_ID_alter
+ * @param type $form
+ * @param type $form_state
+ * @param type $form_id
+ */
+function elog_form_user_login_alter(&$form, &$form_state, $form_id) {
+  $form['name']['#description'] = "Enter your JLAB username";
+  $form['pass']['#description'] = "Enter your Accelerator (ACE) or JLAB (CUE) password";
+}
+
+/**
+ * implements hook_form_FORM_ID_alter
+ * @param type $form
+ * @param type $form_state
+ * @param type $form_id
+ */
+function elog_form_logentry_node_form_alter(&$form, &$form_state, $form_id) {
+  //mypr($form);
+  $lang = $form['language']['#value'];
+
+  //Make the title field larger?
+  $form['title']['#size'] = 100;
+
+
+  //Hide the revision log on initial creation by
+  //setting access rights to FALSE
+  if (empty($form['nid']['#value'])) {
+    $form['revision_information']['#access'] = FALSE;
+  }
+
+  //Suppress form labels inside fieldsets because they are redundant
+  //This is specialized processing that only kicks in when the
+  //fieldgroups module is used.
+  if (isset($form['#groups'])) {
+    foreach (element_children($form['#groups']) as $group_name) {
+      if ($form['#groups'][$group_name]->format_type == 'fieldset') {
+        // Find the names of the form elements insid the fieldset so
+        // that we can unset their labels
+        foreach ($form['#groups'][$group_name]->children as $field_name) {
+          if (isset($form[$field_name])) {
+            if (count(element_children($form[$field_name][$lang])) > 0) {
+              foreach (element_children($form[$field_name][$lang]) as $delta => $foo) {
+                $form[$field_name][$lang][$delta]['#title'] = NULL;
+              }
+            }
+            else {
+              $form[$field_name][$lang]['#title'] = NULL;
+            }
+          }
+        }
+      }
+    }
+    //$form['field_logbook'][$lang]['#title'] = NULL;
+  }
+
+  elog_collapse_multi_input($form, 'field_entrymakers');
+  elog_collapse_multi_input($form, 'field_notify');
+
+
+  // Now we try to set some form default values.
+  // First we determine if this is a follow-up entry
+  // in which case we will default to the original entry's
+  // logbooks and tags.
+  if (isset($_REQUEST['followup']) && is_numeric($_REQUEST['followup'])) {
+    $orig_node = load_node_by_lognumber($_REQUEST['followup']);
+    if (!empty($orig_node)) {
+      // Set a suggested title for followup entries
+      $form['title']['#default_value'] = t('Follow-up Re: ') . $orig_node->title;
+      mypr($orig_node);
+      $form['field_logbook'][$lang]['#default_value'] = elog_get_term_ref_field_items($orig_node->field_logbook, $lang);
+      $form['field_tags'][$lang]['#default_value'] = elog_get_term_ref_field_items($orig_node->field_tags, $lang);
+      $notifications = elog_get_text_field_items($orig_node->field_notify, $lang);
+      $form['field_notify'][$lang][0]['value']['#default_value'] = implode(', ', $notifications);
+      drupal_set_message('Notice: Logbooks, Tags, and Notify fields have been assigned default values from original entry.', 'warning');
+    }
+  }
+
+  // If the logbooks selection is not already set to a default value
+  // try to use the last-viewed logbook as defined in the user's
+  // session
+  if (empty($form['field_logbook'][$lang]['#default_value']) && !empty($_SESSION['currentBook'])) {
+    $tid = get_logbook_tid($_SESSION['currentBook']);
+    if ($tid) {
+      $message = t("The last-viewed logbook !book has been selected by default.", array('!book' => $_SESSION['currentBook']));
+      drupal_set_message($message);
+      $form['field_logbook'][$lang]['#default_value'] = array($tid => $tid);
+    }
+  }
+
+
+
+  $form['field_notify'][$lang]['#element_validate'] = array('elog_notify_validate');
+}
+
+/**
+ * implements hook_form_FORM_ID_alter
+ * @param type $form
+ * @param type $form_state
+ * @param type $form_id
+ */
+function elog_form_comment_form_alter(&$form, &$form_state, $form_id) {
+  //mypr($form);
+  // Hide the stupid "your name is"
+  unset($form['author']['_author']);
+
+  //Make the title field larger?
+  $form['subject']['#size'] = 100;
+
+  // We need to handle the comma-delimited notify field here too.
+  $lang = $form['language']['#value'];
+  elog_collapse_multi_input($form, 'field_notify');
+  $form['#validate'][] = 'elog_comment_validate';
+  $form['field_notify'][$lang]['#element_validate'] = array('elog_notify_validate');
+}
+
+/**
+ * Implementing hook_form_alter()
+ * @todo break into hook_form_[form_id]_alter functions
+ */
+function elog_form_alter(&$form, &$form_state, $form_id) {
+  
+}
+
+/**
+ * Override the autocomplete.js in core with our own that can handle
+ * multiple value autocompletes.
+ * @param array $javascript
+ * @todo find a way to over-ride just the one method rather than entire js file
+ */
+function elog_js_alter(&$javascript) {
+  //@see http://api.drupal.org/api/drupal/modules!system!system.api.php/function/hook_js_alter/7
+  //Testing to see if the autocomplete.js is being included in $javascript and  switching out
+  //its path (data) seems to do the trick to get rid of those drupal_get_js errors in common.inc 
+  if (isset($javascript['misc/autocomplete.js'])) {
+    $data = drupal_get_path('module', 'elog') . '/js/autocomplete.js';
+    $javascript['misc/autocomplete.js']['data'] = $data;
+    //mypr($javascript);
+  }
+}
+
+/**
+ * Implements hook_comment_insert
+ * @param stdClass $comment
+ */
+function elog_comment_insert($comment) {
+  $node = node_load($comment->nid);
+  if ($node->type == 'logentry') {
+    // Touch the "changed" date on the comment's owning node  
+    //touch_logentry($comment->nid);
+    watchdog('elog', "Node $node->nid was newly commented upon");
+    elog_do_email_scheduling($node, '[New Comment]', $comment->cid, $GLOBALS['user']);
+  }
+}
+
+/**
+ * Implements hook_comment_update
+ * @param stdClass $comment
+ */
+function elog_comment_update($comment) {
+  $node = node_load($comment->nid);
+  if ($node->type == 'logentry') {
+    // Touch the "changed" date on the comment's owning node  
+    touch_logentry($comment->nid);
+    watchdog('elog', "Node $node->nid had revised comment upon");
+    elog_do_email_scheduling($node, '[Revised Comment]', $comment->cid, $GLOBALS['user']);
+  }
+}
+
+/**
+ * Implements hook_node_insert
+ * @param type $node
+ */
+function elog_node_insert($node) {
+  // Schedule email notifications
+  if ($node->type == 'logentry') {
+    $sender = user_load($node->uid);
+    elog_do_email_scheduling($node, '[New Logentry]', NULL, $sender);
+
+    if (isset($node->problem_report) && module_exists('elog_pr')) {
+      $node->problem_report->prid = $node->nid;
+      elog_pr_save($node->problem_report);
+      elog_pr_schedule_email($node->problem_report, FALSE, $sender);
+    }
+    elog_update_attachment_statistics($node);
+  }
+}
+
+/**
+ * 
+ * @param type $node
+ */
+function elog_update_attachment_statistics($node) {
+  $image_count = 0;
+  $file_count = 0;
+
+  if (!empty($node->field_image)) {
+    $image_count = count($node->field_image[$node->language]);
+  }
+  if (!empty($node->field_attach)) {
+    $file_count = count($node->field_attach[$node->language]);
+  }
+  db_merge('elog_attachment_statistics')
+      ->key(array('nid' => $node->nid))
+      ->fields(array(
+        'image_count' => $image_count,
+        'file_count' => $file_count,
+      ))
+      ->execute();
+  //mypr($node); 
+}
+
+/**
+ * implements hook_module_implements_alter
+ * @param type $implementations
+ * @param type $hook
+ */
+function elog_module_implements_alter(&$implementations, $hook) {
+  // Block invocation of the comment and elog_pr modules' hook_node_delete.
+  // we'll call it ourselves after we've saved the comments, prs that
+  // might be part of a logentry.
+  if ($hook == 'node_delete') {
+    if (array_key_exists('comment', $implementations))
+      unset($implementations['comment']);
+
+    if (array_key_exists('elog_pr', $implementations))
+      unset($implementations['elog_pr']);
+  }
+}
+
+/**
+ * Implements hook_node_delete
+ * @param type $node
+ */
+function elog_node_delete($node) {
+  // Save nodes to the file system archive before they are deleted.
+  if ($node->type == 'logentry') {
+    try {
+      $lognumber = elog_get_lognumber($node);
+      watchdog('elog', "Lognumber $lognumber (Node $node->nid) is being deleted.", NULL, WATCHDOG_INFO);
+      // Save the entry to an xml file for archiving.
+      // We'll include attachments inside the xml as base64 text
+      $logentry = new Logentry($node, 'base64');
+      $xml = $logentry->getXML('Logentry');
+      $file = elog_get_deleted_subdir() . "/" . $lognumber . ".xml";
+      if (file_put_contents($file, $xml) !== FALSE) {
+        watchdog('elog', "Lognumber $lognumber (Node $node->nid) was deleted to $file", NULL, WATCHDOG_INFO);
+      }
+      else {
+        throw new Exception("Unable to delete Lognumber $lognumber (Node $node->nid)");
+      }
+    }
+    catch (Exception $e) {
+      watchdog('elog', $e->getMessage(), NULL, WATCHDOG_CRITICAL);
+    }
+  }
+
+  // Now we need to call comment_node_delete which was suppressed in
+  // hook_module_implements_alter
+  if (module_exists('comment')) {
+    // We call comment_node_delete directly rather than
+    // via the preferred module_invoke(module,hook, args) method
+    comment_node_delete($node);
+  }
+
+  // Now we need to call elog_pr_node_delete which was suppressed in
+  // hook_module_implements_alter
+  if (module_exists('elog_pr')) {
+    //watchdog('elog',"Removing PR!",NULL, WATCHDOG_DEBUG);
+    elog_pr_node_delete($node);
+  }
+}
+
+/**
+ * Implements hook_node_update
+ * @param type $node
+ */
+function elog_node_update($node) {
+  // Schedule email notifications
+  if ($node->type == 'logentry') {
+    watchdog('elog', "Node $node->nid was updated");
+    // Need to make sure $node is fresh and not stale cache.
+    entity_get_controller('node')->resetCache(array($node->nid));
+
+    // Now load the freshly updated node
+    $updated_node = node_load($node->nid, NULL, TRUE);
+    if ($GLOBALS['user']->uid == 1) { //admin user
+      $sender = NULL;
+    }
+    else {
+      $sender = $GLOBALS['user'];
+    }
+    elog_do_email_scheduling($updated_node, '[Revised Logentry]', NULL, $GLOBALS['user']);
+
+    elog_update_attachment_statistics($node);
+  }
+}
+
+/**
+ * Function to schedule email to the recipients
+ * specified for a node.
+ * @param stdClass $node
+ * @param string $subject_prefix
+ * @param integer $cid the id of the comment prompting the email
+ * @param stdClass $sender The user object for the from address
+ */
+function elog_do_email_scheduling($node, $subject_prefix, $cid = NULL, $sender = NULL) {
+  if (empty($sender)) {
+    $sender = user_load($node->uid);
+  }
+  if ($cid) {
+    $comment = comment_load($cid, TRUE);
+    if ($comment) {
+      if (!empty($comment->field_notify)) {
+        if (count($comment->field_notify[$node->language]) > 0) {
+          foreach ($comment->field_notify[$node->language] as $email_recip) {
+            elog_schedule_email($email_recip, $sender->mail, $subject_prefix, $node->nid, $cid);
+          }
+        }
+      }
+    }
+  }
+  else {
+    if (isset($node->field_notify) && isset($node->field_notify[$node->language])) {
+      if (count($node->field_notify[$node->language]) > 0) {
+        foreach ($node->field_notify[$node->language] as $email_recip) {
+          elog_schedule_email($email_recip, $sender->mail, $subject_prefix, $node->nid, $cid);
+        }
+      }
+    }
+  }
+  //die;
+}
+
+/**
+ * Sets the changed column of the node holding a logentry to current timestamp.
+ * Intended use is to update this column when a comment is added/updated on
+ * the entry.  The logentry is specified by node id (nid) rather than
+ * lognumber for efficiency.
+ * @param type $nid
+ */
+function touch_logentry($nid) {
+  $updated = db_update('node')
+      ->fields(array('changed' => REQUEST_TIME))
+      ->condition('nid', $nid, '=')
+      ->execute();
+  if (!$updated) {
+    $message = "Failed to touch logentry with nid $nid";
+    watchdog('elog', $message, NULL, WATCHDOG_ERROR);
+  }
+}
+
+/**
+ * Used as an access callback for node menu items.
+ * @param type $nid
+ * @return type
+ */
+function elog_user_may_followup($nid) {
+  $node = node_load($nid);
+  return ($node->type == 'logentry') ? TRUE : FALSE;
+}
+
+/**
+ * Used as a page callback.
+ * @param type $nid
+ * @return type
+ */
+function elog_followup($nid) {
+  $node = node_load($nid);
+  $lognumber = elog_get_lognumber($node);
+  drupal_goto("node/add/logentry", array('query' => array('followup' => $lognumber)));
+}
+
+/**
+ * Access callback that determines whether a user may get the edit prefs form
+ * @global type $user
+ * @param type $arg
+ * @return boolean
+ */
+function elog_user_may_edit_prefs($arg) {
+  global $user;
+  if ($user->uid) {
+    if ($user->uid == 1 || $user->uid == $arg) {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ * @see http://www.computerminds.co.uk/articles/creating-new-field-formatters-drupal-7
+ */
+function elog_field_formatter_info() {
+  return array(
+    'elog_lognumber_url' => array(
+      'label' => t('Lognumber as URL to entry'),
+      'field types' => array('serial'),
+    ),
+    'elog_entrymaker_url' => array(
+      'label' => t('Entrymaker as URL to author'),
+      'field types' => array('text'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_formatter_view(). This code just passes straight
+ * through to a theme function, elog_formatter_FORMATTER
+ * (e.g. elog_formatter_elog_lognumber_url).
+ */
+function elog_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $elements = array();
+  foreach ($items as $delta => $item) {
+    $elements[$delta] = array(
+      '#markup' => theme('elog_formatter_' . $display['type'], array('element' => $item, 'field' => $instance)),
+    );
+  }
+  return $elements;
+}
+
+/**
+ * Implements hook_theme() 
+ */
+//function elog_theme($existing, $type, $theme, $path) {
+function elog_theme() {
+  //drupal_set_message('Howdy from theme');
+  //$defvars = get_defined_vars(); //mypr($defvars);
+  return array(
+    'lognumber' => array(
+      'variables' => array('lognumber' => NULL),
+    ),
+    'logtitle' => array(
+      'variables' => array('logtitle' => NULL, 'lognumber' => NULL, 'tids' => array()),
+    ),
+    'elog_formatter_elog_lognumber_url' => array(
+      'variables' => array('lognumber' => NULL),
+    ),
+    //'field_multiple_value_form' => array(),
+    'elog_formatter_elog_entrymaker_url' => array(
+      'variables' => array('entrymaker' => NULL),
+    ),
+    'user_logentries' => array(
+      'variables' => array(
+        'logentries' => NULL,
+      ),
+      'template' => 'user-profile',
+    ),
+  );
+}
+
+/**
+ * Formats a lognumber as the url entry/lognumber
+ * @param array $vars
+ * @return string
+ */
+function theme_elog_formatter_elog_lognumber_url($vars) {
+  $url = '';
+  if (array_key_exists('element', $vars)) {
+    $lognumber = $vars['element']['value'];
+    $path = 'entry/' . $lognumber;
+    $url = l($lognumber, $path, array(
+      'attributes' => array(
+        'class' => 'lognumber',
+        'data-lognumber' => $lognumber,
+      )
+    ));
+  }
+  return $url;
+}
+
+/**
+ * Formats an entrymaker as the url user/name
+ * @param array $vars
+ * @return string
+ */
+function theme_elog_formatter_elog_entrymaker_url($vars) {
+  //mypr($vars);
+  watchdog('elog', 'theme_elog_formatter_elog_entrymaker_url was invoked', NULL, WATCHDOG_DEBUG);
+  $url = '';
+  if (array_key_exists('element', $vars)) {
+    $entrymaker = $vars['element']['value'];
+    if ($user = user_load_by_name($entrymaker)) {
+      $path = 'user/' . $user->name;
+      $url = l($user->name, $path, array(
+        'attributes' => array('class' => 'entrymaker')));
+    }
+  }
+  return $url;
+}
+
+/**
+ * Pushes an entry into the email notification queue
+ * @param $lognumber
+ * @param $to
+ * @param $from
+ * @param $subject_prefix  
+ * @throws
+ */
+function elog_schedule_email($to, $from, $subject_prefix, $nid, $cid = NULL) {
+  try {
+    if (is_scalar($to)) {
+      $to_addr = $to;
+    }
+    elseif (is_array($to) && array_key_exists('value', $to)) {
+      $to_addr = $to['value'];
+    }
+    else {
+      throw new Exception("$to is not a valid email recipient");
+    }
+    if (!stristr($to_addr, '@')) {
+      $to_addr .= EMAIL_DOMAIN;
+    }
+    if (valid_email_address($to_addr) && valid_email_address($from)) {
+      db_merge('logentry_notify')
+          ->key(array('nid' => $nid, 'to_addr' => $to_addr))
+          ->fields(array(
+            'cid' => $cid,
+            'from_addr' => $from,
+            'subject_prefix' => $subject_prefix,
+            'queued' => REQUEST_TIME,
+            'sent' => NULL,
+          ))
+          ->execute();
+    }
+    else {
+      $message = "invalid from ($from) or To ($to_addr) email address in node $nid";
+      watchdog('elog', $message, NULL, WATCHDOG_ERROR);
+    }
+  }
+  catch (Exception $e) {
+    $message = "Failed to schedule Email for node $nid from $from to $to_addr";
+    watchdog('elog', $message, NULL, WATCHDOG_ERROR);
+    return FALSE;
+  }
+  $message = "Scheduled Email for node $nid from $from to $to_addr";
+  watchdog('elog', $message, NULL, WATCHDOG_INFO);
+  return TRUE;
+}
+
+/**
+ * Sends an e-mail.
+ * @see http://drupalcode.org/project/examples.git/blob_plain/refs/heads/7.x-1.x:/email_example/email_example.module
+ * @param $form_values
+ *   An array of values from the contact form fields that were submitted.
+ *   There are just two relevant items: $form_values['email'] and
+ *   $form_values['message'].
+ */
+function elog_send_mail($to, $from, $subject, $node, $cid = NULL) {
+  drupal_page_is_cacheable(FALSE);
+  //print "$to, $from, $subject, $node->nid, $cid"; return false;
+  //$lognumber = $node->field_lognumber[$node->language][0]['value'];
+  // All system mails need to specify the module and template key (mirrored from
+  // hook_mail()) that the message they want to send comes from.
+  $module = 'elog';
+  $key = 'logentry_notify';
+
+  // "params" loads in additional context for email content completion in
+  // hook_mail(). In this case, we want to pass in the values the user entered
+  // into the form, which include the message body in $form_values['message'].
+  $params['node'] = $node;
+  $params['subject'] = $subject;
+
+  if ($cid) {
+    $params['comment'] = comment_load($cid, TRUE);
+  }
+
+  // Since in our case, we are sending a message to a random e-mail address that
+  // is not necessarily tied to a user account, we will use the site's default
+  // language.
+  $language = language_default();
+
+  // Whether or not to automatically send the mail when drupal_mail() is
+  // called. This defaults to TRUE, and is normally what you want unless you
+  // need to do additional processing before drupal_mail_send() is called.
+  $send = TRUE;
+
+  // Send the mail, and check for success. Note that this does not guarantee
+  // message delivery; only that there were no PHP-related issues encountered
+  // while sending.
+  $result = drupal_mail($module, $key, $to, $language, $params, $from, $send);
+  if ($result['result'] == TRUE) {
+    $message = "Email for node $node->nid sent from $from to $to";
+    watchdog('elog', $message, NULL, WATCHDOG_INFO);
+    return TRUE;
+  }
+  else {
+    $message = "Error sending Email for node $node->nid from $from to $to";
+    watchdog('elog', $message, NULL, WATCHDOG_ERROR);
+    return FALSE;
+  }
+  return FALSE;
+}
+
+/**
+ * Implements hook_library().
+ */
+function elog_library() {
+  module_load_include('module', 'libraries');
+  $path = libraries_get_path('select2');
+  $module_path = drupal_get_path("module", "elog");
+
+  $libraries['select2'] = array(
+    'title' => 'select2',
+    'website' => 'http://ivaynberg.github.io/select2/',
+    'version' => '3.4.1',
+    'js' => array(
+      $path . '/select2.js' => array(),
+      $module_path . '/js/select2widget.js' => array(),
+    ),
+    'css' => array(
+      $path . '/select2.css' => array(),
+    //$module_path . '/css/select2widget.css' => array(),
+    ),
+  );
+
+  return $libraries;
+}
+
+/**
+ * Implement hook_mail().
+ *
+ * This hook defines a list of possible e-mail templates that this module can
+ * send. Each e-mail is given a unique identifier, or 'key'.
+ *
+ * $message comes in with some standard properties already set: 'to' address,
+ * 'from' address, and a set of default 'headers' from drupal_mail(). The goal
+ * of hook_mail() is to set the message's 'subject' and 'body' properties, as
+ * well as make any adjustments to the headers that are necessary.
+ *
+ * The $params argument is an array which can hold any additional data required
+ * to build the mail subject and body; for example, user-entered form data, or
+ * some context information as to where the mail request came from.
+ *
+ * Note that hook_mail() is not actually a hook. It is only called for a single
+ * module, the module named in the first argument of drupal_mail(). So it's
+ * a callback of a type, but not a hook.
+ */
+function elog_mail($key, &$message, $params) {
+  global $user;
+
+  // Each message is associated with a language, which may or may not be the
+  // current user's selected language, depending on the type of e-mail being
+  // sent. This $options array is used later in the t() calls for subject
+  // and body to ensure the proper translation takes effect.
+  $options = array(
+    'langcode' => $message['language']->language,
+  );
+
+  switch ($key) {
+    // Send a simple message from the contact form.
+    case 'logentry_notify':
+      $message['subject'] = $params['subject'];
+      // Note that the message body is an array, not a string.
+      //$message['body'][] = t('@name sent you the following message:', array('@name' => $user->name), $options);
+      // Because this is just user-entered text, we do not need to translate it.
+      // Since user-entered text may have unintentional HTML entities in it like
+      // '<' or '>', we need to make sure these entities are properly escaped,
+      // as the body will later be transformed from HTML to text, meaning
+      // that a normal use of '<' will result in truncation of the message.
+      $lang = $params['node']->language;
+      $message['title'] = $params['node']->title;
+
+
+      $message['node'] = $params['node'];
+      $message['content'] = 'Content';
+      $message['body'][] = drupal_render(node_view($params['node'], 'elog_email'));
+      $message['params']['plaintext'] = elog_email_plaintext_node($params);
+      break;
+  }
+}
+
+function elog_email_plaintext_node($params) {
+  $plaintext = '';
+  $node = $params['node'];
+  $path = drupal_get_path_alias("node/" . $node->nid);
+
+  if ($_SERVER['HTTPS'] == 'on') {
+    $url = 'https://' . $_SERVER['SERVER_NAME'] . "/$path";
+  }
+  else {
+    $url = 'http://' . $_SERVER['SERVER_NAME'] . "/$path";
+  }
+
+  if ($node->comment_count > 0) {
+    $plaintext .= "\nComments:\n--\n";
+    $comments = elog_get_comments($node->nid);
+    foreach ($comments as $comment) {
+
+      $plaintext .= elog_get_plaintext_comment($comment);
+    }
+    $plaintext .= "--\n";
+  }
+
+  if ($node->body[$node->language][0]['format']) {
+    $plaintext .= "\nLogentry Text:\n--\n";
+    $plaintext .= $node->body[$node->language][0]['value'];
+  }
+  $plaintext .= "\n\n---\n\n";
+  $plaintext .= "This is a plain text email for clients that cannot display HTML.  ";
+  $plaintext .= "The full logentry can be found online at $url";
+  $plaintext .= "";
+
+  //var_dump($plaintext);die;
+
+  return $plaintext;
+}
+
+/**
+ * Returns the rendered comments for a logentry
+ * @param type $lognumber
+ */
+function elog_comments_by_entry($lognumber) {
+  $node = load_node_by_lognumber($lognumber);
+  $node_view = node_view($node);
+  $node_view['comments'] = comment_node_page_additions($node);
+  //mypr($node_view);
+  $node_view['comments']['#theme'] = array('foo');
+  print drupal_render($node_view['comments']);
+  die;
+}
+
+/**
+ * A placeholder item to invoke tests via URL /test/$var
+ * @param type $var
+ */
+function elog_test($var) {
+  
+  mypr(Logentry::publicPath());
+  
+  $books = array(
+    'NETLOG' => 'Network Logbooks',
+    'SYSTEMLOG' => 'System Logbooks',
+    'SECLOG' => 'Security Logbooks',
+    'SCI-COMPLOG' => 'Scientific Computing Logbooks',
+    'MAINTLOG' => 'Maintenance Logbook',
+    'WINLOG' => 'Windows Logbook',
+    'BUILDLOG' => 'System Build Logbook',
+    'HWLOG' => 'Hardware Logbook',
+    'HPCLOG' => 'High Performance Computing Logbook',
+    'ITSAFETYLOG' => 'IT Safety Division Logbook',
+    'TELELOG' => 'Telecom Logbook',
+  );
+  $vocab = taxonomy_vocabulary_machine_name_load('logbooks');
+  mypr($vocab);
+  foreach ($books as $name => $desc) {
+    $terms = taxonomy_get_term_by_name($name, $vocab->machine_name);
+    mypr($terms);
+  }
+  die;
+
+  $field_data = field_info_field('field_attach');
+  mypr($field_data);
+  $instance_data = field_info_instance('user', 'field_first_name', 'user');
+  mypr($instance_data);
+  $existing = taxonomy_get_term_by_name('Autolog', $vocab->vid);
+
+  //var_dump($existing);
+  die;
+//  $query = db_select('node','n');
+//  $query->fields('n', array('title','nid'));
+//  $query->condition('n.type','useful_link','=');
+//  $query->join('field_data_field_link','l','l.entity_id = n.nid');
+//  $query->fields('l', array('field_link_url'));
+//  $result = $query->execute();
+//  $links = array();
+//  
+//  $navigation = menu_load_links('navigation');
+//  var_dump($navigation);
+//  foreach ($navigation as $n){
+//    $exists[$n['link_path']] = $n['mlid'];
+//  }
+//  while($data = $result->fetchAssoc()){
+//    $link = array(
+//      'link_title' => $data['title'],
+//      'link_path'  => $data['field_link_url'],
+//      'external'  => 1,
+//      'menu'    => 'navigation',
+//      'module'  => 'elog',
+//      'expanded' => 1,
+//      'plid'  => 2114,
+//    );
+//    if ($exists[$data['field_link_url']]){
+//      print $data['field_link_url']." already exists with mlid = ".$exists[$data['field_link_url']]."<br>";
+//      $link['mlid'] = $exists[$data['field_link_url']];
+//    }
+//    $mlid = menu_link_save($link);
+//    print "saved $link[link_title] as $mlid <br>";
+//  }
+//  menu_cache_clear_all();
+//  var_dump($links);
+//  $link = array(
+//    'link_title' => $item['name'],
+//    'menu_name' => $item['menu_name'],
+//    'plid' => $plid,
+//    'options' => array('attributes' => array('title' => trim($item['description'])
+//      ? $item['description'] : $item['name'])),
+//    'weight' => $item['weight'],
+//    'module' => 'taxonomy_menu',
+//    'expanded' => variable_get(_taxonomy_menu_build_variable('expanded', $item['vid']), TRUE),
+//    'link_path' => $path,
+//  );
+//  $mlid = menu_link_save($it);
+  print "done";
+  exit(0);
+  $node = load_node_by_lognumber($var);
+  $node_view = node_view($node);
+  $node_view['comments'] = comment_node_page_additions($node);
+  //mypr($node_view);
+  $node_view['comments']['#theme'] = array('foo');
+  print drupal_render($node_view['comments']);
+  die;
+
+
+//  $wrapper = new EntityDrupalWrapper('node', 72338 );
+//  $wrapper = entity_metadata_wrapper('node', 72338);
+//  print $wrapper->author->mail->value();
+//  print $wrapper->title->type();
+//  mypr($wrapper->body->type());
+//  mypr($wrapper->field_logbook->type());
+//  mypr($wrapper->field_logbook->info());
+//  die;
+//  
+//  mypr($wrapper->raw());
+//  mypr($wrapper->title->value());
+//  foreach($wrapper->field_logbook->getIterator() as $delta => $term_wrapper) {
+//    mypr($term_wrapper);  
+//    $label = $term_wrapper->name->value();
+//    mypr($label);
+//  }
+//  $wrapper->title='All Foobar';
+//  print $wrapper->title->value();
+//  var_dump($wrapper->field_logbook);
+//  die;
+//  
+//  $node = load_node_by_lognumber($var);
+//  //do_email_scheduling($node, '[New Logentry]');
+//  //return "<h1>Sent $node->title</h1>";
+//  var_dump(menu_load_links('navigation'));
+  //return get_external_reftypes_table();
+}
+
+/**
+ * Returns a node object looked up via its lognumber
+ * @param integer $lognumber
+ * @return stdClass or NULL
+ */
+function load_node_by_lognumber($lognumber) {
+  $query = new EntityFieldQuery();
+  $result = $query->entityCondition('entity_type', 'node')
+      ->fieldCondition('field_lognumber', 'value', $lognumber, '=')
+      ->execute();
+
+  // Result will be an array of stub objects.  
+  if (array_key_exists('node', $result)) {
+    $stub = array_shift($result['node']);
+    $node = node_load($stub->nid);
+    return $node;
+  }
+  else {
+    return NULL;
+  }
+}
+
+/*
+  CREATE TABLE logentry_notify (
+  nid integer NOT NULL,
+  cid integer NULL,
+  to_addr varchar(255) NOT NULL,
+  from_addr varchar(255) NOT NULL,
+  subject_prefix varchar(255) NULL,
+  queued integer NOT NULL,
+  sent integer NULL,
+  PRIMARY KEY  (nid, to_addr)
+  );
+
+
+  insert into logentry_notify (nid, cid, lognumber, to_addr, from_addr, subject_prefix, queued, sent)
+  values (465, NULL,'theo@jlab.org','accadm@jlab.org','[Logbook]',curdate(),NULL);
+
+ */
+
+/**
+ * Formats a log author as a url
+ * @param array $vars
+ * @return string
+ */
+function elog_theme_author($author) {
+  //mypr($author);
+  // For efficiency on long lists of many nodes spit out the
+  // path rather than loading the user object and then calling
+  // theme_username.
+  //$user = user_load_by_name($author);
+  //return theme('username', array('account' => $user));
+  $url = "user/$author";
+  //$url = sprintf("<a href=/user/%s>%s</a>", $author, $author);
+  $url = l($author, $url);
+  return $url;
+}
+
+/**
+ * Formats a log title as a url
+ * @param array $vars
+ * @return string
+ */
+function theme_logtitle($vars) {
+  $title_classes = 'logtitle ';
+  if (isset($vars['terms'])) {
+    $title_classes .= implode(' ', $vars['terms']);
+  }
+  //mypr($vars);
+  $url = '';
+  if (array_key_exists('logtitle', $vars)) {
+    $path = 'entry/' . $vars['lognumber'];
+    $url = l($vars['logtitle'], $path, array('attributes' => array('class' => $title_classes)));
+  }
+
+
+  return $url;
+}
+
+/**
+ * Returns true if the client is on the local network.
+ * @return boolean;
+ */
+function is_intranet() {
+  // This just looks at the first characters of the IP address
+  // and isn't suitable for complex networks.
+  if (substr($_SERVER['REMOTE_ADDR'], 0, 7) == INTRANET) {
+    return TRUE;
+  }
+  return FALSE;
+}
+
+/**
+ * Form element validation handler for options element.
+ */
+function elog_widgets_field_widget_validate($element, &$form_state) {
+  if ($element['#required'] && $element['#value'] == '_none') {
+    form_error($element, t('@name field is required.', array('@name' => $element['#title'])));
+  }
+  // Transpose selections from field => delta to delta => field, turning
+  // multiple selected options into multiple parent elements.
+  $items = _options_form_to_storage($element);
+  form_set_value($element, $items, $form_state);
+}
+
+/**
+ * Describes the preparation steps required by each widget.
+ */
+function _elog_widgets_options_properties($type, $multiple, $required, $has_value) {
+  $base = array(
+    'filter_xss' => FALSE,
+    'strip_tags' => FALSE,
+    'empty_option' => FALSE,
+    'optgroups' => FALSE,
+  );
+
+  $properties = array();
+
+  switch ($type) {
+    case 'elog_taxonomy_select2':
+      $properties = array(
+        // Select boxes do not support any HTML tag.
+        'strip_tags' => TRUE,
+        'optgroups' => TRUE,
+      );
+      if (!$multiple) {
+        // Single select: add a 'none' option for non-required fields,
+        // and a 'select a value' option for required fields that do not come
+        // with a value selected.
+        if (!$required) {
+          $properties['empty_option'] = 'option_none';
+        }
+        elseif (!$has_value) {
+          $properties['empty_option'] = 'option_select';
+        }
+      }
+      break;
+  }
+
+  return $properties + $base;
+}
+
+/**
+ * 
+ * @param type $vocab vocabulary machine name
+ */
+function _elog_widgets_get_taxonomy_tree_options($vocab) {
+  $vid = taxonomy_vocabulary_machine_name_load($vocab)->vid;
+  $tree = taxonomy_get_tree($vid);
+  $parent = "";
+  $options = array();
+  foreach ($tree as $term) {
+    if ($term->depth == 0) {
+      $parent = $term->name;
+    }
+    else {
+      if ($term->depth > 1) {
+        $options[$parent][$term->tid] = _elog_widgets_spaces($term->depth, '-') . ' ' . $term->name;
+      }
+      else {
+        $options[$parent][$term->tid] = $term->name;
+      }
+    }
+  }
+  return $options;
+}
+
+function _elog_widgets_spaces($number, $char = ' ') {
+  $output = '';
+  for ($i = 0; $i < $number; $i++) {
+    $output .= $char;
+  }
+
+  return $output;
+}
+
+function elog_widgets_process_callback($element) {
+  //mypr('booyah!');
+  //mypr($element['#required']);
+
+  $required = $element['#required'];
+
+  // #multiple select fields need a special #name.
+  if ($element['#multiple']) {
+    $element['#attributes']['multiple'] = 'multiple';
+    $element['#attributes']['name'] = $element['#name'] . '[]';
+    if ($required) {
+      $element['#attributes']['data-placeholder'] = '- Must Select -';
+    }
+    else {
+      $element['#attributes']['data-placeholder'] = '- None -';
+    }
+    $element['#attributes']['width'] = 'off';
+  }
+  // A non-#multiple select needs special handling to prevent user agents from
+  // preselecting the first option without intention. #multiple select lists do
+  // not get an empty option, as it would not make sense, user interface-wise.
+  else {
+
+    // If the element is required and there is no #default_value, then add an
+    // empty option that will fail validation, so that the user is required to
+    // make a choice. Also, if there's a value for #empty_value or
+    // #empty_option, then add an option that represents emptiness.
+    if (($required && !isset($element['#default_value'])) || isset($element['#empty_value']) || isset($element['#empty_option'])) {
+      $element += array(
+        '#empty_value' => '',
+        '#empty_option' => $required ? t('- Select -') : t('- None -'),
+      );
+      // The empty option is prepended to #options and purposively not merged
+      // to prevent another option in #options mistakenly using the same value
+      // as #empty_value.
+      $empty_option = array($element['#empty_value'] => $element['#empty_option']);
+      $element['#options'] = $empty_option + $element['#options'];
+    }
+  }
+  // Send Drupal.settings a reference to this form element.
+  $data['elog_taxonomy_select2']['elements'][$element['#id']] = array(
+    'id' => $element['#id'],
+    'multiple' => $element['#multiple']
+  );
+
+  // Attaching library, integration script, and settings array.
+  $element['#attached']['library'][] = array('elog', 'select2');
+
+  $element['#attached']['js'][] = array(
+    'type' => 'setting',
+    'data' => $data,
+  );
+
+  return $element;
+}

@@ -1,0 +1,853 @@
+<?php
+
+/**
+ * @file
+ * Installation functions
+ *
+ * Hooks and functions related to installing and updating the module.
+ */
+
+
+/**
+ * Implements hook_install().
+ */
+function elog_install() {
+
+  _elog_install_vocabularies();
+  _elog_install_logentry_type();
+  _elog_install_set_pathauto();
+  _elog_install_user_fields();
+
+  _elog_initialize_vocabularies();
+  _elog_initialize_lognumbers();
+  
+
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function elog_uninstall(){
+  _elog_uninstall_delete_entries();
+  _elog_uninstall_vocabularies();
+  _elog_uninstall_logentry_type();
+  _elog_uninstall_user_fields();
+  _elog_install_unset_pathauto();
+}
+
+
+/**
+ * Delete existing log entries to pave way for removing the
+ * logentry node type.  
+ * 
+ */
+function _elog_uninstall_delete_entries(){
+// Select the nodes that we want to delete.
+$result = db_select('node', 'n')
+          ->fields('n', array('nid'))
+          ->condition('type', 'logentry', '=')
+          ->execute();
+
+$deleted_count = 0;
+foreach ($result as $record) {
+  node_delete($record->nid);
+  $deleted_count++;
+}
+
+// Simple debug message so we can see what had been deleted.
+watchdog('elog', t('Uninstall deleted !count log entries.', array('!count' => $deleted_count)));
+
+
+}
+
+
+/**
+ * Register logbook path patterns with the pathauto module
+ * @see https://www.drupal.org/node/1306354
+ */
+function _elog_install_set_pathauto(){
+  variable_set('pathauto_node_logentry_pattern', 'entry/[node:field_lognumber]');
+  variable_set('pathauto_taxonomy_term_logbooks_pattern', 'book/[term:name]');
+  variable_set('pathauto_taxonomy_term_tags_pattern', 'tag/[term:name]');
+}
+
+/**
+ * Register logbook path patterns with the pathauto module
+ * @see https://www.drupal.org/node/1306354
+ */
+function _elog_install_unset_pathauto(){
+  variable_del('pathauto_node_logentry_pattern');
+  variable_del('pathauto_taxonomy_term_logbooks_pattern');
+  variable_del('pathauto_taxonomy_term_tags_pattern');
+}
+
+/**
+ * Make lognumber serial field start at a high number
+ * in order to allow import of old logook entries that
+ * preserves their number.
+ */
+function _elog_initialize_lognumbers(){
+  
+  db_query('ALTER TABLE {serial_logentry_field_lognumber} '
+      . 'auto_increment = 3000000');
+}
+
+/**
+ * Adds firstname, lastname fields to the User entity
+ */
+function _elog_install_user_fields(){
+  $field_names = array(
+    'field_first_name' => 'First Name',
+    'field_last_name' => 'Last Name'
+  );
+  foreach ($field_names as $field_name => $label) {
+    // Create the field if it doesn't already exist.
+    if (!field_info_field($field_name)) {
+      // Create the field.
+      $field = array(
+        'field_name' => $field_name,
+        'type' => 'text',
+        'module' => 'text',
+        'cardinality' => 1,
+        'settings' => array(
+          'max_length' => 255,
+        ),
+      );
+      field_create_field($field);
+      watchdog('elog', t('!field_name was added successfully.', array('!field_name' => $field_name)));
+    }
+
+    // Create an instance of the field
+    $instance = array(
+      'field_name' => $field_name,
+      'entity_type' => 'user',
+      'bundle' => 'user',
+      'label' => $label,
+      'description' => $label,
+      'required' => TRUE,
+      'settings' => array(
+        'text_processing' => 0,
+      ),
+      'widget' => array(
+        'type' => 'text_textfield',
+        'module' => 'text',
+        'settings' => array(
+          'size' => 60,
+          'weight' => 10,
+        ),
+      ),
+    );
+    field_create_instance($instance);
+  }
+}
+
+
+/**
+ * Remove the fields added to the User bundle
+ */
+function _elog_uninstall_user_fields(){
+  foreach (array('field_first_name', 'field_last_name') as $field_name){
+    $instance = field_info_instance('user', $field_name, 'user');
+    if ($instance) {
+      field_delete_instance($instance);
+    }
+  }
+}
+
+
+/**
+ * Removes the Logentry node type (e.g. bundle) and nodes
+ * of that type.
+ */
+function _elog_uninstall_logentry_type(){
+  $type = 'logentry';
+
+  // First, delete nodes
+  $results = db_select('node', 'n')
+    ->fields('n', array('nid'))
+    ->condition('type', $type)
+    ->execute();
+  foreach ($results as $result) {
+    $nids[] = $result->nid;
+  }
+  if (!empty($nids)) {
+    node_delete_multiple($nids);
+    drupal_set_message(t('%count nodes were deleted.', array('%count' => count($nids))));
+  }
+  // Then, delete content type
+  if (node_type_load($type)) {
+    node_type_delete($type);
+    variable_del('node_preview_' . $type);
+    drupal_set_message(t('%type content type has been deleted.', array('%type' => $type)));
+  }
+
+  node_types_rebuild();
+  menu_rebuild();
+
+}
+
+
+/**
+ * Builds the Logentry node type (e.g. bundle)
+ */
+function _elog_install_logentry_type(){
+  $type = array(
+    'type' => 'logentry',
+    'name' => st('Logentry'),
+    'base' => 'node_content',
+    'description' => st("Basic Informational Electronic Logbook Entry."),
+    'custom' => 1,
+    'modified' => 1,
+    'locked' => 0,
+  );
+
+  $type = node_type_set_defaults($type);
+  node_type_set_defaults($type);
+  node_type_save($type);
+  node_add_body_field($type);
+
+  _elog_install_logentry_attach_fields();
+
+}
+
+
+/**
+ * Attach fields to the logentry node type
+ * @see https://api.drupal.org/api/drupal/modules!field!field.module/group/field/7
+ */
+function _elog_install_logentry_attach_fields(){
+
+  _elog_install_logentry_lognumber_field();
+  _elog_install_logentry_logbooks_field();
+  _elog_install_logentry_tags_field();
+  _elog_install_logentry_references_field();
+  _elog_install_logentry_entrymakers_field();
+  _elog_install_logentry_notify_field();
+  _elog_install_logentry_image_field();
+  _elog_install_logentry_attach_field();
+
+
+}
+
+
+/**
+ * Creates the attachment field and attaches an instance to the logbook node type.
+ *
+ */
+function _elog_install_logentry_attach_field() {
+  $field_name = 'field_attach';
+  if (!field_info_field($field_name)) {
+    // Create the field.
+    $field = array(
+      'field_name' => $field_name,
+      'type' => 'file',
+      'module' => 'file',
+      'cardinality' => -1,
+      'settings' => array(
+        'display_field' => 0,
+        'display_default' => 1,
+        'uri_scheme' => 'public',
+      ),
+    );
+    field_create_field($field);
+    watchdog('elog', t('!field_name was added successfully.', array('!field_name' => $field_name)));
+  }
+  // Create an instance of the field
+  $instance = array(
+    'field_name' => $field_name,
+    'entity_type' => 'node',
+    'bundle' => 'logentry',
+    'label' => 'Attachment',
+    'description' => "Used to attach non-image based files to a log entry.  Examples would be PDF files, spreadsheets, etc.",
+    'required' => FALSE,
+    'settings' => array(
+      'file_extensions' => 'txt xls pdf doc docx xlsx ppt pptx zip gz rtf csv tsv avi ods odt odp',
+      'max_filesize'   => '16 MB',
+      'description_field' => 1,
+    ),
+    'widget' => array(
+      'type' => 'file_generic',
+      'module' => 'file',
+    ),
+  );
+  field_create_instance($instance);
+
+}
+
+
+/**
+ * Creates the image field instance and attaches it to the logbook node type.
+ * Relies on the elog.info file requiring the image to module to ensure that
+ * the field_image is available.
+ */
+function _elog_install_logentry_image_field() {
+  $field_name = 'field_image';
+
+  // Create an instance of the field
+  $instance = array(
+    'field_name' => $field_name,
+    'entity_type' => 'node',
+    'bundle' => 'logentry',
+    'label' => 'Picture',
+    'description' => "Choose the file you want to add and then press upload. Once it has been uploaded, ".
+                     "you will see a thumbnail image of the file you uploaded and have an oppotunity to add a title (caption). ",
+    'required' => FALSE,
+    'settings' => array(
+      'file_extensions' => 'png bmp gif jpg jpeg',
+      'max_filesize'   => '16 MB',
+      'max_resolution' => '1920x1080',
+      'title_field' => 1,
+    ),
+    'widget' => array(
+      'type' => 'image_image',
+      'module' => 'image',
+      'settings' => array(
+        'preview_image_style' => 'thumbnail',
+      ),
+    ),
+  );
+  field_create_instance($instance);
+
+}
+
+
+/**
+ * Creates the logbook field instance and attaches it to the logbook node type
+ */
+function _elog_install_logentry_entrymakers_field() {
+  $field_name = 'field_entrymakers';
+  // Create the field if it doesn't already exist.
+  if (!field_info_field($field_name)) {
+    // Create the field.
+    $field = array(
+      'field_name' => $field_name,
+      'type' => 'text',
+      'module' => 'text',
+      'cardinality' => -1,
+      'settings' => array(
+        'max_length' => 255,
+      ),
+    );
+    field_create_field($field);
+    watchdog('elog', t('!field_name was added successfully.', array('!field_name' => $field_name)));
+  }
+
+  // Create an instance of the field
+  $instance = array(
+    'field_name' => $field_name,
+    'entity_type' => 'node',
+    'bundle' => 'logentry',
+    'label' => 'Entry Makers',
+    'description' => "A list of usernames (separated by commas) of individuals in addition to the submitter who should be associated with authorship of the entry.",
+    'required' => FALSE,
+    'settings' => array(
+      'text_processing' => 0,
+    ),
+    'widget' => array(
+      'type' => 'text_textfield',
+      'module' => 'text',
+      'settings' => array(
+        'size' => 60,
+        'weight' => 10,
+      ),
+    ),
+  );
+  field_create_instance($instance);
+
+}
+
+/**
+ * Creates the logbook field instance and attaches it to the logbook node type
+ */
+function _elog_install_logentry_notify_field() {
+  $field_name = 'field_notify';
+  // Create the field if it doesn't already exist.
+  if (!field_info_field($field_name)) {
+    // Create the field.
+    $field = array(
+      'field_name' => $field_name,
+      'type' => 'text',
+      'module' => 'text',
+      'cardinality' => -1,
+      'settings' => array(
+        'max_length' => 255,
+      ),
+    );
+    field_create_field($field);
+    watchdog('elog', t('!field_name was added successfully.', array('!field_name' => $field_name)));
+  }
+
+  // Create an instance of the field
+  $instance = array(
+    'field_name' => $field_name,
+    'entity_type' => 'node',
+    'bundle' => 'logentry',
+    'label' => 'Notify',
+    'description' => "A list of email addresses (separated by commas) to receive an email copy of the entry after it is posted.",
+    'required' => FALSE,
+    'settings' => array(
+      'text_processing' => 0,
+    ),
+    'widget' => array(
+      'type' => 'text_textfield',
+      'module' => 'text',
+      'settings' => array(
+        'size' => 60,
+        'weight' => 20,
+      ),
+    ),
+  );
+  field_create_instance($instance);
+
+}
+
+
+/**
+ * Creates the logbook field instance and attaches it to the logbook node type
+ */
+function _elog_install_logentry_lognumber_field() {
+  $field_name = 'field_lognumber';
+  // Create the field if it doesn't already exist.
+  if (!field_info_field($field_name)) {
+    // Create the field.
+    $field = array(
+      'field_name' => $field_name,
+      'type' => 'serial',
+      'module' => 'serial',
+      'cardinality' => 1,
+      'settings' => array(),
+    );
+    field_create_field($field);
+    watchdog('elog', t('!field_name was added successfully.', array('!field_name' => $field_name)));
+  }
+
+  // Create an instance of the field
+  $instance = array(
+    'field_name' => $field_name,
+    'entity_type' => 'node',
+    'bundle' => 'logentry',
+    'label' => 'Lognumber',
+    'description' => "Logbook Number",
+    'required' => TRUE,
+    'widget' => array(
+      'type' => 'serial',
+      'module' => 'serial',
+      'active'=> 1,
+      'weight' => -10,
+      'settings' => array(
+        'cardinality' => 1,
+      ),
+    ),
+  );
+  field_create_instance($instance);
+
+}
+
+
+
+
+/**
+ * Creates the logbook field instance and attaches it to the logbook node type
+ */
+function _elog_install_logentry_references_field() {
+  $field_name = 'field_references';
+  // Create the field if it doesn't already exist.
+  if (!field_info_field($field_name)) {
+    // Create the field.
+    $field = array(
+      'field_name' => $field_name,
+      'type' => 'number_integer',
+      'module' => 'number',
+      'cardinality' => -1,
+      'settings' => array(),
+    );
+    field_create_field($field);
+    watchdog('elog', t('!field_name was added successfully.', array('!field_name' => $field_name)));
+  }
+
+  // Create an instance of the field
+  $instance = array(
+    'field_name' => $field_name,
+    'entity_type' => 'node',
+    'bundle' => 'logentry',
+    'label' => 'Logbook References',
+    'description' => "References to other Lognumbers",
+    'required' => FALSE,
+    'widget' => array(
+      'type' => 'number',
+      'module' => 'number',
+      'settings' => array(),
+    ),
+  );
+  field_create_instance($instance);
+
+}
+
+/**
+ * Creates the logbook field instance and attaches it to the logbook node type
+ */
+function _elog_install_logentry_logbooks_field(){
+  $field_name = 'field_logbook';
+
+  // Create the field if it doesn't already exist.
+  if (!field_info_field($field_name)) {
+    // Create the field.
+    $field = array(
+      'field_name' => $field_name,
+      'type' => 'taxonomy_term_reference',
+      'module' => 'taxonomy',
+      'cardinality' => -1,
+      'settings' => array(
+        'allowed_values' => array(
+          array(
+            'vocabulary' => 'logbooks',
+            'parent' => 0,
+
+          ),
+        ),
+      ),
+    );
+    field_create_field($field);
+    watchdog('elog', t('!field_name was added successfully.', array('!field_name' => $field_name)));
+  }
+
+  // Create an instance of the field
+  $instance = array(
+    'field_name' => $field_name,
+    'entity_type' => 'node',
+    'bundle' => 'logentry',
+    'label' => 'Logbook(s)',
+    'description' => "Organize entries by audience",
+    'required' => TRUE,
+    'vocabulary' => 'logbooks',
+    'widget' => array(
+      'type' => 'options_buttons',
+      'module' => 'buttons',
+      'active'=> 1,
+      'weight' => 0,
+      'settings' => array(
+        'cardinality' => -1,
+      ),
+    ),
+  );
+  field_create_instance($instance);
+}
+
+/**
+ * Creates the tags field instance and attaches it to the logbook node type
+ */
+function _elog_install_logentry_tags_field(){
+  $field_name = 'field_tags';
+
+  // The tags field probably already exists.
+  if (!field_info_field($field_name)) {
+    // Create the field.
+    $field = array(
+      'field_name' => $field_name,
+      'type' => 'taxonomy_term_reference',
+      'module' => 'taxonomy',
+      'cardinality' => -1,
+      'settings' => array(
+        'allowed_values' => array(
+          array(
+            'vocabulary' => 'tags',
+            'parent' => 0,
+
+          ),
+        ),
+      ),
+    );
+    field_create_field($field);
+    watchdog('elog', t('!field_name was added successfully.', array('!field_name' => $field_name)));
+  }  else {
+    watchdog('elog', t('!field_name already exists.', array('!field_name' => $field_name)));
+  }
+
+  // Create an instance of the field
+  $instance = array(
+    'field_name' => $field_name,
+    'entity_type' => 'node',
+    'bundle' => 'logentry',
+    'label' => 'Tag(s)',
+    'description' => "Organize entries by content",
+    'required' => FALSE,
+    'vocabulary' => 'tags',
+    'widget' => array(
+      'type' => 'options_buttons',
+      'module' => 'buttons',
+      'active'=> 1,
+      'weight' => 5,
+      'settings' => array(
+        'cardinality' => -1,
+      ),
+    ),
+  );
+  field_create_instance($instance);
+
+
+}
+
+
+/**
+ * Creates some initial taxonomy terms.
+ * Should be called after pathauto config so that the terms
+ * get assigned the desired paths.
+ */
+function _elog_initialize_vocabularies(){
+  
+  // Create a starter logbook
+  $vocab = taxonomy_vocabulary_machine_name_load('logbooks');
+  $term = (object) array(
+    'name' => 'GENLOG',
+    'description' => 'General Purpose Logbook (created by installer)',
+    'vid' => $vocab->vid,
+  );
+  taxonomy_term_save($term);
+  
+  // Create a couple initial tags
+  $vocab = taxonomy_vocabulary_machine_name_load('tags');
+  // Create starter tags if they don't exists
+  $existing = taxonomy_get_term_by_name('Readme', $vocab->machine_name);
+  if (empty($existing )) {
+    $term = (object) array(
+      'name' => 'Readme',
+      'description' => 'Identifies an entry whose content is highly important for people to read and heed.',
+      'vid' => $vocab->vid,
+    );
+    taxonomy_term_save($term);
+  }
+
+  $existing = taxonomy_get_term_by_name('Autolog', $vocab->machine_name);
+  if (empty($existing )) {
+    $term = (object) array(
+      'name' => 'Autolog',
+      'description' => 'Indicates an entry that was programmatically generated. ',
+      'vid' => $vocab->vid,
+    );
+    taxonomy_term_save($term);
+  }
+  
+}
+
+
+/**
+ * Creates the Logbooks and if necessary, also the Tags vocabulary.
+ * @see http://www.webomelette.com/taxonomy-vocabulary-term-programatically-drupal-7#sthash.8g6yf1hx.dpuf
+ *
+ */
+function _elog_install_vocabularies(){
+  $t = get_t();
+
+  $vocab = (object) array(
+    'name' => 'Logbooks',
+    'description' => $t('Logbooks used to categorize entries by audience'),
+    'machine_name' => 'logbooks',
+  );
+  taxonomy_vocabulary_save($vocab);
+
+
+  // The tags vocabulary should be standard with Drupal, but we check for its existance
+  // here just in case.
+  if (taxonomy_vocabulary_machine_name_load('tags') === FALSE) {
+    $vocab = (object) array(
+      'name' => 'Tags',
+      'description' => $t('Tags used to categorize entries by subject matter'),
+      'machine_name' => 'tags',
+    );
+    taxonomy_vocabulary_save($vocab);
+  }
+
+}
+
+/**
+ * Removes the Logbooks vocabulary.  Leaves alone the Tags vocabulary b/c it
+ * probably was standard part of Drupal.
+ *
+ * @see http://www.webomelette.com/taxonomy-vocabulary-term-programatically-drupal-7#sthash.8g6yf1hx.dpuf
+ *
+ */
+function _elog_uninstall_vocabularies() {
+  $vocab = taxonomy_vocabulary_machine_name_load('logbooks');
+  if ($vocab) {
+    taxonomy_vocabulary_delete($vocab->vid);
+  }
+
+  $vocab = taxonomy_vocabulary_machine_name_load('tags');
+  foreach (array('Readme','Autolog') as $name) {
+    $terms = taxonomy_get_term_by_name($name, $vocab->machine_name);
+    foreach ($terms as $term) {
+      if (taxonomy_term_delete($term->tid)) {
+        watchdog('elog', t('Tag !tag was deleted.', array('!tag' => $name)));
+      }
+      else {
+        watchdog('elog', t('Unable to delete Tag !tag.', array('!tag' => $name)));
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_schema().
+ */
+function elog_schema() {
+  $schema['logentry_notify'] = array(
+    'description' => 'Queues Logentries for email notification',
+    'fields' => array(
+      'nid' => array(
+        'description' => 'Identifies the log entry to send',
+        'type' => 'int',
+        'not null' => TRUE,
+      ),
+      'cid' => array(
+        'description' => 'Identifies the log entry comment to send',
+        'type' => 'int',
+        'not null' => FALSE,
+      ),
+      'to_addr' => array(
+        'description' => 'Email address of recipient',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+      ),
+      'from_addr' => array(
+        'description' => 'Email address of send',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+      ),
+      'subject_prefix' => array(
+        'description' => 'Prefix for the subject line',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => FALSE,
+      ),
+      'queued' => array(
+        'description' => 'Unix timestamp the entry was queued',
+        'type' => 'int',
+        'not null' => TRUE,
+      ),
+      'sent' => array(
+        'description' => 'Unix timestmap the entry was emailed',
+        'type' => 'int',
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('nid', 'to_addr'),
+  );
+
+  $schema['elog_attachment_statistics'] = _elog_attachment_statistics_schema();
+
+  return $schema;
+}
+
+
+
+function _elog_attachment_statistics_schema(){
+  $schema = array(
+    'description' => 'Tracks the number of attachments on an entry',
+    'fields' => array(
+      'nid' => array(
+        'description' => 'Identifies the log entry node',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'file_count' => array(
+        'description' => 'Identifies the number of non-image attachments',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'image_count' => array(
+        'description' => 'Identifies the number of image attachments',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+    ),
+    'indexes' => array(
+      'nid' => array('nid'),
+    ),
+    'primary_key' => array('nid'),
+  );
+
+  return $schema;
+
+
+}
+
+
+
+/**
+ * This update adds the elog_attachment_statistics table.  For good measure,
+ * it would also be desirable for the dba to add a foreign key
+ * cascade on delete in the database:
+ * 
+ * alter table elog_attachment_statistics
+ *  add constraint fk_attach_stat_nid 
+ *  foreign key (nid) references node(nid)
+ *  on delete cascade 
+ *  on update restrict;
+ */
+function elog_update_7103() {
+  db_create_table('elog_attachment_statistics', _elog_attachment_statistics_schema());
+  return 'Added the elog_attachment_statistics table for the elog module.';
+}
+
+/**
+ * Create pseudo user attribute on User
+ * 
+ */
+function elog_update_7107() {
+  
+  /*
+   * mysql> select uid, name 
+   *  from users left join field_data_is_pseudo_user 
+   * on entity_id=uid 
+   * where is_pseudo_user_value=1;
+   */
+  //field_delete_field('is_pseudo_user');
+  if (!field_info_field('is_pseudo_user')) {
+    $field = array(
+      'field_name' => 'is_pseudo_user',
+      'type' => 'list_boolean',
+      'settings' => array(
+        'required' => FALSE,
+        'allowed_values' => array('Regular User', 'Pseudo User'),
+      ),
+      'default_widget' => 'options_checkbox',
+    );
+    field_create_field($field);
+  }
+  $instance = array(
+    'field_name' => 'is_pseudo_user',
+    'entity_type' => 'user',
+    'label' => 'Used to indicate a pseudo user',
+    'bundle' => 'user',
+    'required' => false,
+  );
+  field_create_instance($instance);
+  return 'Added the is_pseudo_user field to User';
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function elog_requirements($phase) {
+  $requirements = array();
+  if ($phase == 'runtime') {
+    module_load_include('module', 'libraries');
+    $available = libraries_get_path('select2');
+    $t = get_t();
+
+    $requirements = array(
+      'elog_widgets_library' => array(
+        'title' => $t('Select2'),
+        'value' => $available ? $t('Library is available') : $t('Library is missing'),
+        'description' => $available ? NULL : $t('Please download the Select2 library into "sites/all/libraries" or any alternative path that is supported by the libraries module.'),
+        'severity' => $available ? REQUIREMENT_OK : REQUIREMENT_ERROR,
+      ),
+    );
+  }
+  return $requirements;
+}

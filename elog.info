@@ -1,0 +1,35 @@
+; $Id$
+ 
+name = Electronic Logbook
+description = Jefferson Lab Electronic Logbook Module
+package = Elog Module
+core = 7.x
+ 
+files[] = elog.module
+
+; Explicitly adding the files here makes them
+; available at bootstrap.
+files[] = lib/LogentryQuery.inc.php
+files[] = lib/CommentQuery.inc.php
+files[] = lib/Logentry.inc.php
+files[] = lib/Comment.inc.php
+files[] = lib/NodeUtil.inc.php
+files[] = lib/LogentryUtil.inc.php
+
+stylesheets[all][] = css/elog.css
+scripts[] = js/elog.js
+scripts[] = js/jquery.datetimepicker.js
+dependencies[] = taxonomy
+dependencies[] = image
+dependencies[] = file
+dependencies[] = comment
+dependencies[] = serial
+dependencies[] = date
+dependencies[] = pathauto
+dependencies[] = libraries
+dependencies[] = filefield_paths
+
+
+
+
+

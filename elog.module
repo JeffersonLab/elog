@@ -1956,6 +1956,16 @@ function _elog_widgets_options_properties($type, $multiple, $required, $has_valu
   return $properties + $base;
 }
 
+function _elog_taxonomy_tree_max_depth($tree){
+  $max_depth = 0;
+  foreach ($tree as $term){
+    if ($term->depth > $max_depth){
+      $max_depth = $term->depth;
+    }
+  }
+  return $max_depth;
+}
+
 /**
  * 
  * @param type $vocab vocabulary machine name
@@ -1963,8 +1973,19 @@ function _elog_widgets_options_properties($type, $multiple, $required, $has_valu
 function _elog_widgets_get_taxonomy_tree_options($vocab) {
   $vid = taxonomy_vocabulary_machine_name_load($vocab)->vid;
   $tree = taxonomy_get_tree($vid);
+  $tree_depth = _elog_taxonomy_tree_max_depth($tree);
   $parent = "";
   $options = array();
+  
+  // Case of flat taxonomy
+  if ($tree_depth == 0){
+    foreach ($tree as $term) {
+      $options[$term->tid] = $term->name;
+    }
+    return $options;
+  }
+  
+  // Case of taxonomy hierarchy
   foreach ($tree as $term) {
     if ($term->depth == 0) {
       $parent = $term->name;
@@ -1978,6 +1999,7 @@ function _elog_widgets_get_taxonomy_tree_options($vocab) {
       }
     }
   }
+  //mypr($options);
   return $options;
 }
 

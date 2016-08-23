@@ -839,7 +839,7 @@ function elog_field_widget_form(&$form, &$form_state, $field, $instance, $langco
         '#type' => 'select',
         '#default_value' => $default_value,
         // Do not display a 'multiple' select box if there is only one option.
-        '#multiple' => $multiple && count($options) > 1,
+        '#multiple' => $multiple && count(options_array_flatten($options)) > 1,
         '#options' => $options,
         '#process' => array('elog_widgets_process_callback'),
         '#value_key' => $value_key,
@@ -1992,7 +1992,7 @@ function _elog_widgets_spaces($number, $char = ' ') {
 
 function elog_widgets_process_callback($element) {
   //mypr('booyah!');
-  //mypr($element['#required']);
+  //mypr($element);
 
   $required = $element['#required'];
 
@@ -2043,5 +2043,6 @@ function elog_widgets_process_callback($element) {
     'data' => $data,
   );
 
+  //mypr($element);
   return $element;
 }

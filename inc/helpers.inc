@@ -220,9 +220,11 @@ function elog_get_plaintext_comment($comment) {
  */
 function elog_get_term_ref_field_items($field, $lang = 'und') {
   $items = array();
-  mypr($field);
-  foreach ($field[$lang] as $delta => $item) {
-    $items[] = $item['tid'];
+  //mypr($field);
+  if (!empty($field)){
+    foreach ($field[$lang] as $delta => $item) {
+      $items[] = $item['tid'];
+    }
   }
   return $items;
 }
@@ -236,9 +238,11 @@ function elog_get_term_ref_field_items($field, $lang = 'und') {
  */
 function elog_get_text_field_items($field, $lang = 'und') {
   $items = array();
-  mypr($field);
-  foreach ($field[$lang] as $delta => $item) {
-    $items[] = $item['value'];
+  //mypr($field);
+  if (!empty($field)){
+    foreach ($field[$lang] as $delta => $item) {
+      $items[] = $item['value'];
+    }
   }
   return $items;
 }

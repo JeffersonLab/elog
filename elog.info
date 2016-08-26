@@ -25,6 +25,7 @@ dependencies[] = file
 dependencies[] = comment
 dependencies[] = serial
 dependencies[] = date
+dependencies[] = date_popup
 dependencies[] = pathauto
 dependencies[] = libraries
 dependencies[] = filefield_paths

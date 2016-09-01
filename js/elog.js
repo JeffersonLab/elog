@@ -5,7 +5,7 @@
         attach: function (context, settings) {
             // Advanced filters form elements   
             if (jQuery().select2) {
-		$(".select2").select2({width: '200px'});
+                $(".select2").select2({width: '200px'});
                 $(".select2-m").select2({width: '400px'});
                 $(".select2-l").select2({width: '600px'});
                 $(".select2-xl").select2({width: '800px'});
@@ -60,9 +60,9 @@
                     $('input[name="start_date[time]"]').val('');
                     $('input[name="end_date[date]"]').val(selectedDate);
                     $('input[name="end_date[time]"]').val('23:59');
-                    
+                   
                     $('input[name="start_date"]').val('');
-                    
+                   
                     var endDate = new Date(selectedDate);
                     var endDateString = 
                             endDate.getUTCFullYear() +"-"+
@@ -72,8 +72,16 @@
 
                     $('input[name="end_date"]').val(endDateString);
                     
-                    $('#elog-form-advanced-filters input[type="submit"]').click();
-                    $('#elog-daterange-form input[type="submit"]').click();
+                    if ($('#elog-form-advanced-filters')){
+                      $('#elog-form-advanced-filters').submit();
+                    }else if ( $('#elog-daterange-form')){
+                      $('#elog-daterange-form').submit();
+                    }else{
+                      alert('The Date Picker block requires the Date Range or Filter Form blocks!');
+                    }
+                    //$('#elog-form-advanced-filters input[type="submit"]').click();
+                    //$('#elog-daterange-form input[type="submit"]').click();
+                    // console.log('bye');
                 }
             });
             // The %5B,%5D is the urlencoded [] around the url var.    

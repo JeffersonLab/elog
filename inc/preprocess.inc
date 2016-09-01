@@ -234,7 +234,8 @@ function elog_preprocess_logentry(array &$vars) {
   $vars['comments'] = '';
     foreach ($comments as $delta => $cid) {
     $comment_obj = comment_load($cid);
-    $vars['comments'] .= drupal_render(comment_view($comment_obj, $vars['node'],$vars['view_mode']));
+    $rendered_comment_view = comment_view($comment_obj, $vars['node'],$vars['view_mode']);
+    $vars['comments'] .= drupal_render($rendered_comment_view);
   }
   
   

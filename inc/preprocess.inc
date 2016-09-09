@@ -39,9 +39,13 @@ function elog_preprocess_maintenance_page(&$vars){
  * Generates variables for the htmlmail template(s) to use
  * @param array $vars
  */
+
 function elog_preprocess_htmlmail(&$vars) {
   $vars['content'] = array(); 
   $vars['display_submitted'] = true;  //pixture reloaded template uses
+  if (!array_key_exists('node', $vars) || ! is_object($vars['node'])){
+    $vars['node'] = new stdClass();
+  }
   $vars['node']->content = array();
   //The key will tell us what type of email.
   if ($vars['key'] == 'logentry_notify') {
@@ -344,13 +348,13 @@ function elog_preprocess_logentry(array &$vars) {
     if (isset($item['#item']['title']) && $vars['view_mode'] == 'full'){
       $output .= '<div class="image-caption">'.$item['#item']['title'].'</div>';
     }
+    $item['#item']['attributes']['view_mode'] = $vars['view_mode'];
     $output .= drupal_render($item);
     $output .= '</div>';
     $images[$delta] = $output;
   }
   $vars['images'] = implode(' ',$images);
   //mypr($vars);
-  
 
   
   // The non-image file attachments

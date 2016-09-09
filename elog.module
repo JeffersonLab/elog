@@ -1660,7 +1660,7 @@ function elog_email_plaintext_node($params) {
     $plaintext .= "--\n";
   }
 
-  if (isset($node->body) && $node->body[$node->language][0]['format']) {
+  if (!empty($node->body) && $node->body[$node->language][0]['format']) {
     $plaintext .= "\nLogentry Text:\n--\n";
     $plaintext .= $node->body[$node->language][0]['value'];
   }

@@ -82,7 +82,6 @@ static function newNodeFromLogentry(Logentry $elog, $submitter){
     $node->body[$node->language][0]['value']   = $elog->body;
     $node->body[$node->language][0]['summary'] = text_summary($elog->body);
     
-    watchdog('elog', "Submitter is $submitter", NULL, WATCHDOG_DEBUG);
     if ($account = user_load_by_name($submitter)){
       $available_formats = drupal_map_assoc(
           array_keys(filter_formats($account)));

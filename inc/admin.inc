@@ -16,8 +16,11 @@ if (!defined('EMAIL_DOMAIN')) {
   define('EMAIL_DOMAIN', '@jlab.org');
 }
 define('ELOG_ERA', '2009-01-01');
+//define('ELOG_DTM_DATA','https://accweb.acc.jlab.org/dtm/data/events');
+//define('ELOG_DTM_OPEN_EVENTS','https://accweb.acc.jlab.org/dtm/open-events');
+
 define('ELOG_DTM_DATA','https://accweb.acc.jlab.org/dtm/data/events');
-define('ELOG_DTM_OPEN_EVENTS','https://accweb.acc.jlab.org/dtm/open-events');
+define('ELOG_DTM_OPEN_EVENTS','https://cebaf.jlab.org/dtm/open-events');
 
 // The starting sequence for non-legacy entries
 // lognumbers below this are reserved for importing

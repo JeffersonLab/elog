@@ -64,11 +64,14 @@
                     $('input[name="start_date"]').val('');
                    
                     var endDate = new Date(selectedDate);
+                    // Note the difference:
+                    // getUTCMonth() returns 0-11
+                    // getUTCDate()  returns 1-31
                     var endDateString = 
                             endDate.getUTCFullYear() +"-"+
                             ("0" + (endDate.getUTCMonth()+1)).slice(-2) +"-"+
-                            ("0" + (endDate.getUTCDate()+1)).slice(-2) + 
-                            " 00:00";
+                            ("0" + (endDate.getUTCDate())).slice(-2) + 
+                            " 23:59";
 
                     $('input[name="end_date"]').val(endDateString);
                     

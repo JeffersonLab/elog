@@ -720,7 +720,11 @@ function elog_node_validate($node, $form, &$form_state) {
     foreach ($references as $delta => $r) {
       //mypr($r);
 
-      if (!is_numeric($r['value'])) {
+      //We don't try and check non-numeric inpt here
+      if (! is_array($r)){
+        continue;
+      }
+      if ( !array_key_exists('value', $r) || ! is_numeric($r['value'])){
         continue;
       }
       //mypr($form); die;
@@ -844,7 +848,7 @@ function elog_field_widget_form(&$form, &$form_state, $field, $instance, $langco
         '#process' => array('elog_widgets_process_callback'),
         '#value_key' => $value_key,
         '#element_validate' => array('elog_widgets_field_widget_validate'),
-          //'#properties' => $properties,
+        '#properties' => $properties,
           //'#attributes' => array('class' => array('select2')),
       );
       //mypr($element);
@@ -954,23 +958,6 @@ function elog_form_user_profile_form_alter(&$form, &$form_state, $form_id) {
   //$form['actions']['submit']['#submit'][]='elog_form_user_profile_form_submit';
 }
 
-//function elog_user_prefs_form_submit($form, &$form_state){
-//    mypr($form_state);
-//    mypr($form);
-//    mypr($user->data);
-//    if (count($form_state['values']['frontpage_logbooks']) > 0){
-//      $account = user_load_by_name($form_state['values']['name']);
-//      $account->data['elog_frontpage_logbooks'] = array();
-//      foreach ($form_state['values']['frontpage_logbooks'] as $delta => $selected){
-//        foreach ($selected as $tid){
-//          $account->data['elog_frontpage_logbooks'][$tid] = $tid;
-//        }
-//      }
-//      user_save($account, array('data'=>$account->data));
-//    }
-//    $account = user_load_by_name($form_state['values']['name']);
-//    mypr($account); die;
-//}
 
 /**
  * implements hook_form_FORM_ID_alter
@@ -1622,7 +1609,7 @@ function elog_mail($key, &$message, $params) {
   );
 
   switch ($key) {
-    // Send a simple message from the contact form.
+    // Send a logentry node
     case 'logentry_notify':
       $message['subject'] = $params['subject'];
       // Note that the message body is an array, not a string.
@@ -1638,7 +1625,14 @@ function elog_mail($key, &$message, $params) {
 
       $message['node'] = $params['node'];
       $message['content'] = 'Content';
-      $message['body'][] = drupal_render(node_view($params['node'], 'elog_email'));
+      $nview = node_view($params['node'], 'elog_email'); 
+      $body = drupal_render($nview);
+      $message['body'][] = $body;
+      //print "boo";
+      //module_load_include('inc', 'mimemail');
+      //$files = mimemail_extract_files($body);
+      //print "hoo";
+      //mypr($files); //drupal_exit();
       $message['params']['plaintext'] = elog_email_plaintext_node($params);
       break;
   }
@@ -1666,7 +1660,7 @@ function elog_email_plaintext_node($params) {
     $plaintext .= "--\n";
   }
 
-  if ($node->body[$node->language][0]['format']) {
+  if (!empty($node->body) && $node->body[$node->language][0]['format']) {
     $plaintext .= "\nLogentry Text:\n--\n";
     $plaintext .= $node->body[$node->language][0]['value'];
   }
@@ -1700,8 +1694,8 @@ function elog_comments_by_entry($lognumber) {
  */
 function elog_test($var) {
   
-  mypr(Logentry::publicPath());
-  
+  mypr(DRUPAL_ROOT.libraries_get_path('bootstrap',true));
+  drupal_exit();
   $books = array(
     'NETLOG' => 'Network Logbooks',
     'SYSTEMLOG' => 'System Logbooks',

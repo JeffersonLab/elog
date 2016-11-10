@@ -106,19 +106,18 @@ try{
         throw new Exception("XML File exceeds max length (in bytes) of ".MAX_PUT_FILE_SIZE);
     }
     
-    // Don't understand why/when the server distinquishes
-    // between the first two hash keys
-    if ( isset($_SERVER['SSL_CLIENT_S_DN_CN'])){
-      $submitter = $_SERVER['SSL_CLIENT_S_DN_CN'];
-    }elseif ( isset($_SERVER['REDIRECT_SSL_CLIENT_S_DN_CN'])){
-      $submitter = $_SERVER['REDIRECT_SSL_CLIENT_S_DN_CN'];
-    }elseif (stristr($_SERVER['SERVER_NAME'],'vmweb')){   //development
-      $submitter ='theo';
+    // Now SSL client inspection & verification steps
+    $submitter = elog_get_ssl_client();
+    $serial = elog_get_ssl_serial();    
+    if (!elog_ssl_serial_is_valid($serial)){
+       watchdog('elog', 'Rejected XML file posted with revoked SSL certificate @serial and common name @cn', 
+           array('@serial'=>$serial, '@cn' => $submitter), WATCHDOG_NOTICE);
+       throw new Exception('The SSL client certificate has been revoked.');
     }else{
-      throw new Exception("Unable to ascertain submitter's identity from SSL certificate");
+       watchdog('elog', 'XML file posted with SSL certificate @serial with common name @cn', 
+           array('@serial'=>$serial, '@cn' => $submitter), WATCHDOG_INFO);
     }
     
-    //print "Howdy $submitter! \n";
     
     //Validate the xml file against the schema
     if (! LogentryUtil::validateXMLFile($outfile, variable_get('elog_schema'))){
@@ -343,6 +342,61 @@ function get_processed_subdir(){
     
   }
 
+/**
+ * Returns the Common Name field extracted of the curent SSL client.
+ * 
+ * @note requires the apache setting
+ *   SSLOptions +StdEnvVars
+ * @return string 
+ * @throws Exception if SSL data not available from server
+ */
+function elog_get_ssl_client(){ 
+    // Don't understand why/when the server distinquishes
+    // between the two StdEnvVar names
+    if ( isset($_SERVER['SSL_CLIENT_S_DN_CN'])){
+      return $_SERVER['SSL_CLIENT_S_DN_CN'];
+    }
+    if ( isset($_SERVER['REDIRECT_SSL_CLIENT_S_DN_CN'])){
+      return $_SERVER['REDIRECT_SSL_CLIENT_S_DN_CN'];
+    }
+    throw new Exception("Unable to extract submitter's identity from SSL certificate");
+}
+ 
+/**
+ * Returns true if the Serial number of the current SSL client is not
+ * flagged as revoked.
+ * 
+ * @note requires the apache setting
+ *   SSLOptions +StdEnvVars
+ * 
+ * @return string
+ * @throws Exception if SSL data not available from server
+ */
+function elog_get_ssl_serial(){
+    // Don't understand why/when the server distinquishes
+    // between the two StdEnvVar names
+    if ( isset($_SERVER['SSL_CLIENT_M_SERIAL'])){
+      return $_SERVER['SSL_CLIENT_M_SERIAL'];
+    }
+    if ( isset($_SERVER['REDIRECT_SSL_CLIENT_M_SERIAL'])){
+      return $_SERVER['REDIRECT_SSL_CLIENT_M_SERIAL'];
+    }
+   throw new Exception("Unable to extract serial number from SSL certificate"); 
+}
+
+/**
+ * Answers whether the current SSL client certificate has a serial number that
+ * is on the revoked serials list.
+ * 
+ * @return boolean
+ */
+function elog_ssl_serial_is_valid($serial){
+    $revoked = variable_get('elog_certs_revoked_serials',array());
+    if ($serial && ! in_array($serial, $revoked)){
+      return TRUE;
+    }   
+    return FALSE;    
+}
 
 /**
  * Set Posted to the original elog date
@@ -359,6 +413,4 @@ function elog_fix_date($node){
       ->condition('nid', $node->nid, '=')
       ->execute();
 }
-
-
 ?>

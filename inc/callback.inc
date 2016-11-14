@@ -260,14 +260,14 @@ function elog_delete_range($range){
         $_SESSION['delete_count'] = 0;
         elog_batch_delete($query);
         exit(0);
-      }
-
-      
+     }else{
+       print "\n<br> Max deletable lognumber is ".FIRST_LOGNUMBER;
+     }
     }
   }else{
     print "Insufficient Privilege";
   }
-  die("done");
+  die("\n<br>done");
 }
 
 /**
@@ -350,6 +350,7 @@ function elog_process_email_queue() {
   
   foreach ($master_schedule as $nid=>$comment_set){
     $node = node_load($nid);
+    if (! $node ) { continue; }  // Probably a node since deleted.
     foreach ($comment_set as $cid=>$recip_set){
       $to = implode(', ', array_keys($recip_set));
       // Assumption that from, prefix, etc. same for all recips of

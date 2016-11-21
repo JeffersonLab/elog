@@ -16,28 +16,6 @@ include_once('inc/taxonomy.inc');
 include_once('inc/preprocess.inc');
 
 
-// @todo Move these constants into drupal variabless with admin interface.
-// So we won't server inaccessible internal links to
-// external browsers who can't access them.
-//define('INTRANET', '129.57.');
-//define('EMAIL_DOMAIN', '@jlab.org');
-//define('ELOG_ERA', '2009-01-01');
-//
-//
-//define('ELOG_DTM_DATA','https://accweb.acc.jlab.org/dtm/data/events');
-//define('ELOG_DTM_OPEN_EVENTS','https://accweb.acc.jlab.org/dtm/open-events');
-//
-//
-// The starting sequence for non-legacy entries
-// lognumbers below this are reserved for importing
-// entries from legacy systems
-//define('FIRST_LOGNUMBER', 3000000);
-// Where public:// urls really live in the file system
-// @todo is there a drupal way to get this?
-//define('PUBLIC_DIR', '/www/logbooks/html/files');
-// Where we save an archive XML version of any logentry that gets deleted
-//define('LOGENTRY_DELETED_DIR','/www/logbooks/files/deleted');
-//@todo make these a module configuration setting.
 $GLOBALS['logbook_display_settings'] = array(
   'hide_autologs' => 0,
   'entries_per_page' => '50',
@@ -1190,6 +1168,61 @@ function elog_module_implements_alter(&$implementations, $hook) {
 }
 
 /**
+ * implements hook_taxonomy_term_delete()
+ */
+function elog_taxonomy_term_delete($term){
+   if ($term->vocabulary_machine_name == 'logbooks'
+       || $term->vocabulary_machine_name == 'tags'){
+     watchdog('elog', "Taxonomy term @term was deleted - scheduling schema rebuild", 
+         array('@term'=>$term->name), WATCHDOG_DEBUG);
+     variable_set('elog_rebuild_schema', TRUE);
+   }
+}
+
+/**
+ * implements hook_taxonomy_term_insert()
+ */
+function elog_taxonomy_term_insert($term){
+  //Schedule a rebuild of the Schema documents if necessary
+  if ($term->vocabulary_machine_name == 'logbooks'
+       || $term->vocabulary_machine_name == 'tags'){
+       watchdog('elog', "Taxonomy term @term was inserted - scheduling schema rebuild", 
+           array('@term'=>$term->name), WATCHDOG_DEBUG);
+       variable_set('elog_rebuild_schema', TRUE);
+   }
+}
+
+/**
+ * implements hook_taxonomy_term_update()
+ */
+function elog_taxonomy_term_update($term){
+  //Schedule a rebuild of the Schema documents if necessary
+  if ($term->vocabulary_machine_name == 'logbooks'
+       || $term->vocabulary_machine_name == 'tags'){
+       watchdog('elog', "Taxonomy term @term was updated - scheduling schema rebuild", 
+           array('@term'=>$term->name), WATCHDOG_DEBUG);
+       variable_set('elog_rebuild_schema', TRUE);
+   }
+}
+
+
+
+/*
+ * Implements hook_cron().
+ */
+function elog_cron(){
+  watchdog('elog', "Executing cron", NULL, WATCHDOG_INFO);
+  if (variable_get('elog_rebuild_schema', FALSE) === TRUE){    
+    if (elog_taxonomy_update_schema()){
+     variable_set('elog_rebuild_schema', FALSE);
+    }
+  }
+}
+
+
+
+
+/**
  * Implements hook_node_delete
  * @param type $node
  */
@@ -1693,6 +1726,12 @@ function elog_comments_by_entry($lognumber) {
  * @param type $var
  */
 function elog_test($var) {
+  
+  elog_taxonomy_update_schema();
+  die;
+  $groups = jlab_auth_check_ldap('someuser', '###');
+  mypr($groups);
+  drupal_exit();
   
   mypr(DRUPAL_ROOT.libraries_get_path('bootstrap',true));
   drupal_exit();

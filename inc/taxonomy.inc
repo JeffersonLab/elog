@@ -41,7 +41,7 @@ function elog_form_taxonomy_form_term_alter(&$form, &$form_state) {
   $form['relations']['#collapsed'] = FALSE;
   $form['relations']['parent']['#title'] = 'Parent term';
   $form['relations']['parent']['#multiple'] = FALSE;
-  mypr($form);
+  //mypr($form);
   // Register a callback for after the form is built so that we can remove the text format
   // selections field
   $form['#after_build'][] = 'elog_taxonomy_form_term_after_build';
@@ -224,4 +224,56 @@ function is_valid_logbook($name) {
     return TRUE;
   }
   return FALSE;
+}
+
+/**
+ * Writes out an XSD file for tags or logbooks
+ * @param type $file  - file to write
+ * @param type $tag  - what the element name will be inside the file
+ * @param type $vocab - The vocabulary name (not machine name) 
+ */
+function elog_taxonomy_write_xsd($file, $tag, $vocab){
+ watchdog('elog', "Attempting to update schema file @file", 
+      array('@file'=>$file), WATCHDOG_INFO);
+ if ( is_writable($file) ) {
+  $terms = get_taxonomy_terms_by_vocab($vocab);
+  if (count($terms) > 0){
+    $xsd = "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n";
+    $xsd .= "<xs:element name=\"$tag\">\n";
+    $xsd .= "<xs:simpleType>\n";
+    $xsd .= "<xs:restriction base=\"xs:string\">\n";
+    foreach ($terms as $term){
+      $xsd .= "\t<xs:enumeration value=\"$term\"/>\n";
+    }
+    $xsd .= "</xs:restriction>\n";
+    $xsd .= "</xs:simpleType>\n";
+    $xsd .= "</xs:element>\n";
+    $xsd .= "</xs:schema>\n";
+    if (! file_put_contents($file, $xsd)){
+        watchdog('elog', "Failed writing schema file @file", 
+              array('@file'=>$file), WATCHDOG_CRITICAL);
+        return FALSE;
+    }
+  }else{
+    watchdog('elog', "Unable to update Schema.  @vocab has no terms", 
+           array('@vocab'=>$vocab), WATCHDOG_CRITICAL);
+    return FALSE;
+  }
+      
+ }else{
+       watchdog('elog', "Unable to update Schema.  @file is not writable", 
+           array('@file'=>$file), WATCHDOG_CRITICAL);
+       return FALSE;
+ }
+ return TRUE;
+}
+
+
+function elog_taxonomy_update_schema(){
+  $schemaDir = $_SERVER['DOCUMENT_ROOT'] . 'schema';
+  $logbooksXsd = $schemaDir . '/LogbooksEnum.xsd';
+  $tagsXsd = $schemaDir . '/TagsEnum.xsd';
+  $success1 = elog_taxonomy_write_xsd($logbooksXsd, 'logbook', 'Logbooks');
+  $success2 = elog_taxonomy_write_xsd($tagsXsd, 'tag', 'Tags');
+  return ($success1 && $success2);
 }

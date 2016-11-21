@@ -180,8 +180,8 @@ function elog_form_advanced_filters($form, &$form_state) {
     $lq->addFiltersFromArray($_GET);
   }
   
-  mypr($_GET);
-  mypr($lq);
+  //mypr($_GET);
+  //mypr($lq);
 
 
   $format = 'Y-m-d H:i';

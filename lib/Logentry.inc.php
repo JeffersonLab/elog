@@ -1268,5 +1268,3 @@ class Logentry {
 
 }
 
-// Logentry
-?>

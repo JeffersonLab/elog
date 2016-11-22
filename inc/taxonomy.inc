@@ -227,23 +227,43 @@ function is_valid_logbook($name) {
 }
 
 /**
+ * Returns only the leaf node terms of the provided taxonomy term tree.
+ * @param array $tree
+ * @return array of taxonomy terms
+ */
+function elog_taxonomy_get_leaf_terms($tree){
+  //Note that a flat single level tree will be max depth=0
+  $tree_depth = _elog_taxonomy_tree_max_depth($tree);
+  $terms = array();
+  foreach ($tree as $term){
+    if ($term->depth == $tree_depth) {
+      $terms[] = $term;
+    }
+  }
+  return $terms;
+}
+
+/**
  * Writes out an XSD file for tags or logbooks
  * @param type $file  - file to write
  * @param type $tag  - what the element name will be inside the file
- * @param type $vocab - The vocabulary name (not machine name) 
+ * @param type $vocab - The vocabulary machine name 
  */
 function elog_taxonomy_write_xsd($file, $tag, $vocab){
  watchdog('elog', "Attempting to update schema file @file", 
       array('@file'=>$file), WATCHDOG_INFO);
  if ( is_writable($file) ) {
-  $terms = get_taxonomy_terms_by_vocab($vocab);
+  $vid = taxonomy_vocabulary_machine_name_load($vocab)->vid;
+  $tree = taxonomy_get_tree($vid);    
+  $terms = elog_taxonomy_get_leaf_terms($tree);
+  //mypr($terms);
   if (count($terms) > 0){
     $xsd = "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n";
     $xsd .= "<xs:element name=\"$tag\">\n";
     $xsd .= "<xs:simpleType>\n";
     $xsd .= "<xs:restriction base=\"xs:string\">\n";
     foreach ($terms as $term){
-      $xsd .= "\t<xs:enumeration value=\"$term\"/>\n";
+      $xsd .= sprintf("\t<xs:enumeration value=\"%s\"/>\n", htmlspecialchars($term->name));
     }
     $xsd .= "</xs:restriction>\n";
     $xsd .= "</xs:simpleType>\n";
@@ -273,7 +293,7 @@ function elog_taxonomy_update_schema(){
   $schemaDir = $_SERVER['DOCUMENT_ROOT'] . 'schema';
   $logbooksXsd = $schemaDir . '/LogbooksEnum.xsd';
   $tagsXsd = $schemaDir . '/TagsEnum.xsd';
-  $success1 = elog_taxonomy_write_xsd($logbooksXsd, 'logbook', 'Logbooks');
-  $success2 = elog_taxonomy_write_xsd($tagsXsd, 'tag', 'Tags');
+  $success1 = elog_taxonomy_write_xsd($logbooksXsd, 'logbook', 'logbooks');
+  $success2 = elog_taxonomy_write_xsd($tagsXsd, 'tag', 'tags');
   return ($success1 && $success2);
 }

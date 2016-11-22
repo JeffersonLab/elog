@@ -258,17 +258,28 @@ function elog_taxonomy_write_xsd($file, $tag, $vocab){
   $terms = elog_taxonomy_get_leaf_terms($tree);
   //mypr($terms);
   if (count($terms) > 0){
-    $xsd = "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n";
-    $xsd .= "<xs:element name=\"$tag\">\n";
-    $xsd .= "<xs:simpleType>\n";
-    $xsd .= "<xs:restriction base=\"xs:string\">\n";
+    $xw = new xmlWriter();
+    $xw->openMemory();
+    $xw->setIndent(true);
+    $xw->startElementNS('xs','schema','http://www.w3.org/2001/XMLSchema');
+    $xw->startElement('xs:element');
+    $xw->writeAttribute('name',$tag);
+    
+    $xw->startElement('xs:simpleType');
+    $xw->startElement('xs:restriction');
+    $xw->writeAttribute('base','xs:string');
     foreach ($terms as $term){
-      $xsd .= sprintf("\t<xs:enumeration value=\"%s\"/>\n", htmlspecialchars($term->name));
+      $xw->startElement('xs:enumeration');
+      $xw->writeAttribute('value',$term->name);
+      $xw->EndElement();
     }
-    $xsd .= "</xs:restriction>\n";
-    $xsd .= "</xs:simpleType>\n";
-    $xsd .= "</xs:element>\n";
-    $xsd .= "</xs:schema>\n";
+    $xw->EndElement();
+    $xw->EndElement();
+    $xw->EndElement();
+    $xw->EndElement();
+    $xsd = $xw->outputMemory(true);
+    //mypr($xsd);
+    
     if (! file_put_contents($file, $xsd)){
         watchdog('elog', "Failed writing schema file @file", 
               array('@file'=>$file), WATCHDOG_CRITICAL);

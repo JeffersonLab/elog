@@ -158,7 +158,7 @@ class Logentry {
         $this->constructFromNode($args[0]);
       } elseif (is_string($args[0])) {
         $this->setTitle($args[0]);
-        $this->setCreated(mktime());
+        $this->setCreated(time());
       }
     } elseif (count($args) == 2) {
       if (is_a($args[0], 'StdClass')) {

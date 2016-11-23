@@ -1215,7 +1215,7 @@ class Logentry {
         //@see https://drupal.stackexchange.com/questions/56487/how-do-i-get-the-path-for-public
         $publicPath = $this->publicPath();
         
-        if ($node_comment->field_image) {
+        if (isset($node_comment->field_image) && $node_comment->field_image) {
           foreach ($node_comment->field_image[$node_comment->language] as $arr) {
             $file = str_replace('public:/', $publicPath, $arr['uri']);
             if (file_exists($file)) {
@@ -1224,7 +1224,7 @@ class Logentry {
           }
         }
 
-        if ($node_comment->field_attach) {
+        if (isset($node_comment->field_attach) && $node_comment->field_attach) {
           foreach ($node_comment->field_attach[$node_comment->language] as $arr) {
             $file = str_replace('public:/', $publicPath, $arr['uri']);
             if (file_exists($file)) {

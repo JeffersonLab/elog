@@ -16,8 +16,6 @@ if (!defined('EMAIL_DOMAIN')) {
   define('EMAIL_DOMAIN', '@jlab.org');
 }
 define('ELOG_ERA', '2009-01-01');
-//define('ELOG_DTM_DATA','https://accweb.acc.jlab.org/dtm/data/events');
-//define('ELOG_DTM_OPEN_EVENTS','https://accweb.acc.jlab.org/dtm/open-events');
 
 define('ELOG_DTM_DATA','https://accweb.acc.jlab.org/dtm/data/events');
 define('ELOG_DTM_OPEN_EVENTS','https://cebaf.jlab.org/dtm/open-events');
@@ -27,21 +25,12 @@ define('ELOG_DTM_OPEN_EVENTS','https://cebaf.jlab.org/dtm/open-events');
 // entries from legacy systems
 define('FIRST_LOGNUMBER', 3000000);
 
-// Where public:// urls really live in the file system
-// @todo is there a drupal way to get this?
-// Yes: https://drupal.stackexchange.com/questions/56487/how-do-i-get-the-path-for-public
-// define('PUBLIC_DIR', '/www/logbooks/html/files');
-
-// Where we save an archive XML version of any logentry that gets deleted
-//define('LOGENTRY_DELETED_DIR','/www/logbooks/files/deleted');
-
-
 
 /**
  * Builds a form to allow administrator to set config options
- * @param type $form
- * @param type $form_state
- * @return string
+ * @param array $form
+ * @param array $form_state
+ * @return array
  */
 function elog_settings_form($form, &$form_state) {
 
@@ -81,37 +70,6 @@ function elog_settings_form($form, &$form_state) {
     '#default_value' => variable_get('elog_schema'),
   );
 
-//
-//  $form['elog_export_dir'] = array(
-//    '#type' => 'textfield',
-//    '#title' => t('Export Directory'),
-//    '#description' => t('An absolute path to a file system directory.  Must be writable by web server.'),
-//    '#size' => 60,
-//    '#maxlength' => 120,
-//    '#required' => TRUE,
-//    '#default_value' => variable_get('elog_export_dir', '/group/elogbooks/export'),
-//  );
-//
-//  $form['elog_archive_logentry_xsl'] = array(
-//    '#type' => 'textfield',
-//    '#title' => t('Logentry XSL File'),
-//    '#description' => t('The filename of the XSL file relative to Archive Directory that archive entries should reference. '),
-//    '#size' => 60,
-//    '#maxlength' => 120,
-//    '#required' => TRUE,
-//    '#default_value' => variable_get('elog_archive_logentry_xsl', 'Logentry.xsl'),
-//  );
-//
-//  $form['elog_archive_logentry_css'] = array(
-//    '#type' => 'textfield',
-//    '#title' => t('Logentry CSS File'),
-//    '#description' => t('The filename of the CSS file relative to Archive Directory that archive entries should reference. '),
-//    '#size' => 60,
-//    '#maxlength' => 120,
-//    '#required' => TRUE,
-//    '#default_value' => variable_get('elog_archive_logentry_css', 'Logentry.css'),
-//  );
-//
   // Submit button
   $form['submit'] = array(
     '#type' => 'submit',
@@ -122,9 +80,9 @@ function elog_settings_form($form, &$form_state) {
 }
 
 /**
- * Implements hook_form_validate
- * @param type $form
- * @param type $form_state
+ * Implements hook_form_validate()
+ * @param array $form
+ * @param array $form_state
  */
 function elog_settings_form_validate($form, &$form_state) {
 
@@ -144,35 +102,17 @@ function elog_settings_form_validate($form, &$form_state) {
     form_set_error('Schema URL Error', "Unable to acess the Schema URL.");
   }
   
-  
-//  $export_path = $form_state['values']['elog_export_dir'];
-//  if (!is_writable($export_path)) {
-//    form_set_error('Permission Error', "$export_path is not writable.");
-//  }
-//
-//  $xsl = $form_state['values']['elog_archive_logentry_xsl'];
-//  if (!file_exists("$archive_path/$xsl")) {
-//    form_set_error('File Error', " $archive_path/$xsl does not exist.");
-//  }
-//
-//  $css = $form_state['values']['elog_archive_logentry_css'];
-//  if (!file_exists("$archive_path/$css")) {
-//    form_set_error('File Error', " $archive_path/$css does not exist.");
-//  }
 }
 
 /**
- * Implements hook_form_submit
- * @param type $form
- * @param type $form_state
+ * Implements hook_form_submit()
+ * @param array $form
+ * @param array $form_state
  */
 function elog_settings_form_submit($form, &$form_state) {
   variable_set('elog_deleted_dir', $form_state['values']['elog_deleted_dir']);
   variable_set('elog_processed_dir', $form_state['values']['elog_processed_dir']);
   variable_set('elog_schema', $form_state['values']['elog_schema']);
-//  variable_set('elog_export_dir', $form_state['values']['elog_export_dir']);
-//  variable_set('elog_archive_logentry_xsl', $form_state['values']['elog_archive_logentry_xsl']);
-//  variable_set('elog_archive_logentry_css', $form_state['values']['elog_archive_logentry_css']);
   drupal_set_message(t('The settings have been saved'));
 }
 

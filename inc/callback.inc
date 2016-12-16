@@ -247,7 +247,7 @@ function elog_delete_range($range){
       $first_num = $m[1];
       $last_num = $m[2];
       print "deleting from $first_num to $last_num";
-      if ($m[2] < FIRST_LOGNUMBER){
+      if ($m[2] < FIRST_LOGNUMBER || $_REQUEST['force']){
         // Select the nodes that we want to delete.
         // http://drupal.org/node/92861
         $node_type = 'logentry';
@@ -445,7 +445,8 @@ function entry_xml_output($lognumber) {
         ->addMetaData('account', user_load(1)); // run the query as user 1
 
     $result = $query->execute();
-    $nid = array_shift(array_keys($result['node']));
+    $keys = array_keys($result['node']);
+    $nid = array_shift($keys);
 
     $node = node_load($nid);
     if (!$node) {
@@ -462,6 +463,11 @@ function entry_xml_output($lognumber) {
 
 
 /**
+ * This function and its associated elog_menu() invocation are deprecated.
+ * They were previously used to maintain the schema documents by a special cron
+ * job running on dbm.  The job is now performed by taxonomy hooks in the elog
+ * module that only fire when taxonomy vocab changes have actually been made.
+ * 
  * Outputs the leaf-node logbook names as enumeration restrictions
  * for inclusion in the Logentry XML schema
  * Store and retrieve from cache when possible
@@ -474,6 +480,11 @@ function logbooks_xsd(){
 }
 
 /**
+ * This function and its associated elog_menu() invocation are deprecated.
+ * They were previously used to maintain the schema documents by a special cron
+ * job running on dbm.  The job is now performed by taxonomy hooks in the elog
+ * module that only fire when taxonomy vocab changes have actually been made.
+ * 
  * Outputs the leaf-node tag names as enumeration restrictions
  * for inclusion in the Logentry XML schema
  * Store and retrieve from cache when possible
@@ -495,7 +506,17 @@ function elog_tags_admin(){
 }
 
 
-
+/**
+ * This function and its associated elog_menu() invocation are deprecated.
+ * They were previously used to maintain the schema documents by a special cron
+ * job running on dbm.  The job is now performed by taxonomy hooks in the elog
+ * module that only fire when taxonomy vocab changes have actually been made.
+ * 
+ * @param type $vocab
+ * @param type $name
+ * @param type $desc
+ * @return type
+ */
 function make_xsd_from_vocab($vocab,$name,$desc){
   $vid = get_taxonomy_vid_by_name($vocab);
   $list = taxonomy_get_tree($vid, 0, NULL, TRUE);

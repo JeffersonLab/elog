@@ -6,7 +6,9 @@
  *
  * Implements the business logic for dealing with Logentry entities. 
  */
+
 // @todo Can these be conditional includes?
+include_once('inc/globals.inc');
 include_once('inc/admin.inc');
 include_once('inc/blocks.inc');
 include_once('inc/forms.inc');
@@ -16,14 +18,7 @@ include_once('inc/taxonomy.inc');
 include_once('inc/preprocess.inc');
 
 
-$GLOBALS['logbook_display_settings'] = array(
-  'hide_autologs' => 0,
-  'entries_per_page' => '50',
-  'group_by' => 'SHIFT',
-  'listing_format' => 'table',
-  'enable_preview' => 0,
-  'table_date' => 'created',
-);
+
 
 /**
  * Implements hook_menu()

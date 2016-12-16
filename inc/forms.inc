@@ -59,11 +59,7 @@ function elog_display_settings_form($form) {
   $form['group_by'] = array(
     '#type' => 'select',
     '#title' => t('Group Entries:'),
-    '#options' => array(
-      'SHIFT' => 'By Shift',
-      'DAY' => 'By Day',
-      'NONE' => 'No Grouping'
-    ),
+    '#options' => $GLOBALS['elog_group_by_options'],
     '#default_value' => $default_values['group_by'],
   );
   $form['listing_format'] = array(

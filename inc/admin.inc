@@ -56,9 +56,8 @@ function elog_settings_form($form, &$form_state) {
     '#required' => TRUE,
     '#default_value' => variable_get('elog_processed_dir'),
   );
-  
-  
-    $form['elog_schema'] = array(
+    
+  $form['elog_schema'] = array(
     '#type' => 'textfield',
     '#title' => t('Schema URL'),
     '#description' =>
@@ -68,6 +67,16 @@ function elog_settings_form($form, &$form_state) {
     '#maxlength' => 120,
     '#required' => TRUE,
     '#default_value' => variable_get('elog_schema'),
+  );
+  
+  $form['elog_default_group_by'] = array(
+    '#type' => 'select',
+    '#title' => t('Default Entry Grouping'),
+    '#description' =>
+      t('The default grouping to be applied to entry listings'),
+    '#options' => $GLOBALS['elog_group_by_options'],
+    '#required' => TRUE,
+    '#default_value' => variable_get('elog_default_group_by','SHIFT'),
   );
 
   // Submit button
@@ -113,6 +122,7 @@ function elog_settings_form_submit($form, &$form_state) {
   variable_set('elog_deleted_dir', $form_state['values']['elog_deleted_dir']);
   variable_set('elog_processed_dir', $form_state['values']['elog_processed_dir']);
   variable_set('elog_schema', $form_state['values']['elog_schema']);
+  variable_set('elog_default_group_by', $form_state['values']['elog_default_group_by']);
   drupal_set_message(t('The settings have been saved'));
 }
 

@@ -9,6 +9,7 @@ files[] = elog.module
 
 ; Explicitly adding the files here makes them
 ; available at bootstrap.
+files[] = inc/globals.inc
 files[] = lib/LogentryQuery.inc.php
 files[] = lib/CommentQuery.inc.php
 files[] = lib/Logentry.inc.php

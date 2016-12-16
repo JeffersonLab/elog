@@ -153,28 +153,6 @@ function main_listing(){
   return $listing;  
 }
 
-/**
- * Generates the HTML to display teasers of recent entries
- * @param object $term
- * @return string (themed html)
- */
-//function recent_listing() {
-//  
-//  $lq = new LogentryQuery();
-//  $lq->entries_per_page = 5;
-//  $lq->group_by = 'NONE';
-// 
-//  $lq->start_date = strtotime("-10 days");  
-//  $data = $lq->getDBQueryResults();
-//  //$listing = elog_listing($lq, $display);
-//  $output = get_teasers_from_db_results($data, $lq);
-//  $output .= theme('pager');
-//  if (!$output) {
-//    $output = '<h2>' . t('No Activity for the past 24 hours') . '</h2>';
-//  }
-//  return $output;
-//}
-
 
 /**
  * Generates the HTML to display the listing of comments by 

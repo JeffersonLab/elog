@@ -347,6 +347,18 @@ function elog_process_email_queue() {
   }
    
   $nodes_to_clear = array();
+
+  // We need to become admin in order to access files in the
+  // private area during email creation.
+  // To avoid creating a backdoor for remote users, we 
+  // only do this for localhost
+  
+  if ($_SERVER['REMOTE_ADDR'] == '127.0.0.1' 
+	|| $_SERVER['REMOTE_ADDR'] == $_SERVER['SERVER_ADDR']){
+  	
+	$GLOBALS["user"] = user_load(1);
+  }
+  
   
   foreach ($master_schedule as $nid=>$comment_set){
     $node = node_load($nid);
@@ -383,6 +395,10 @@ function elog_process_email_queue() {
           watchdog('elog', $message, NULL, WATCHDOG_ERROR);
         }        
     }
+
+  // We want to drop admin.  We do it always just to be safe.
+  $GLOBALS["user"] = user_load(0);
+
 }
 
 /**

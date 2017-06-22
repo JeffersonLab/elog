@@ -180,8 +180,12 @@ function elog_preprocess_logentry(array &$vars) {
   }
 
   $field = field_get_items('node', $vars['node'], 'field_lognumber');
-  $field_value = field_view_value('node', $vars['node'], 'field_lognumber', $field[0],$vars['view_mode']);
-  $vars['lognumber'] = drupal_render($field_value);
+  if (isset($field[0])){
+  	$field_value = field_view_value('node', $vars['node'], 'field_lognumber', $field[0],$vars['view_mode']);
+  	$vars['lognumber'] = drupal_render($field_value);
+  }else{
+	$vars['lognumber'] = '';
+  }
   $vars['logbooks'] = implode_rendered_field($vars['node'], 'field_logbook');
   //mypr($vars['logbooks']);
   $vars['tags'] = implode_rendered_field($vars['node'], 'field_tags');
@@ -379,6 +383,7 @@ function elog_preprocess_logentry(array &$vars) {
     $vars['updated'] = '';
   }
   
+if (isset($vars['node']->nid)){
   $comment = new stdClass;
   $comment->nid = $vars['node']->nid;
   //mypr($vars['view_mode']); die;
@@ -386,9 +391,10 @@ function elog_preprocess_logentry(array &$vars) {
     $comment_form = drupal_get_form('comment_form', $comment);
     $form = drupal_render($comment_form);
     $vars['comment_form'] = $form;
-  }else{
-    $vars['comment_form'] = '';
   }
+}else{
+    $vars['comment_form'] = '';
+}
   
   //mypr($vars);
   //die('arrived at elog_preprocess_node');

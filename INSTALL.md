@@ -12,6 +12,8 @@ This guide assumes the availability of a dedicated Centos/RHEL 7 Linux Server.  
 * https://www.digitalocean.com/community/tutorials/additional-recommended-steps-for-new-centos-7-servers
 * https://www.digitalocean.com/community/tutorials/how-to-install-linux-apache-mysql-php-lamp-stack-on-centos-7
 
+**For the sake of simplicity, these instructions assume that SELinux is disabled or in permissive mode.**
+
 ## Install Updated MariaDB 
 The MariaDB 5.5 version distributed with Centos 7 does not support full-text indexes on innodb tables.  
 

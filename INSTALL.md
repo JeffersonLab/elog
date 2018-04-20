@@ -111,6 +111,9 @@ Now install Drupal using its web-based installer which can be accessed via http:
 
 Choose the "Standard" install profile.
 
+*Important*: Be sure that "clean urls" are enabled and working after you complete the Drupal installation.
+See the Drupal documentation: https://www.drupal.org/docs/7/configuring-clean-urls/enable-clean-urls
+
 ### Download & Install Drupal Modules
 
 #### Drush
@@ -128,7 +131,21 @@ https_proxy = http://proxy.your.org:8081
 http_proxy = http://proxy.your.org:8081
 ````
 
-#### Third-party Modules
+#### Drupal Libraries
+````bash
+# download
+cd /var/www/drupal-7.58/sites/all/libraries
+wget https://github.com/twbs/bootstrap/releases/download/v3.3.7/bootstrap-3.3.7-dist.zip
+wget https://github.com/select2/select2/archive/3.5.4.tar.gz
+# unpack
+unzip bootstrap-3.3.7-dist.zip
+tar xf 3.5.4.tar.gz
+# Make library symlinks
+ln -s bootstrap-3.3.7-dist bootstrap
+ln -s select2-3.5.4 select2
+````
+
+#### Third-party Modules & Themes
 
 ````bash
 # Download
@@ -139,6 +156,8 @@ drush pm-download taxonomy_menu token
 drush pm-download htmlmail mimemail mailsystem
 drush pm-download htmlawed 
 drush pm-download js 
+drush pm-download bootstrap
+
 # Enable
 drush pm-enable admin_menu bootstrap_library collapsiblock ctools
 drush pm-enable date date_popup devel diff field_group filefield_paths
@@ -148,4 +167,12 @@ drush pm-enable htmlmail mimemail mailsystem mailmime
 drush pm-enable htmLawed 
 ````
 
-#### Drupal Libraries
+#### Logbook Modules & Themes
+````bash
+cd /var/www/drupal-7.58/sites/all/modules
+git clone https://github.com/JeffersonLab/elog.git
+cd /var/www/drupal-7.58/sites/all/themes
+git clone https://github.com/JeffersonLab/bootstrap_logbooks.git
+drush pm-enable elog 
+````
+

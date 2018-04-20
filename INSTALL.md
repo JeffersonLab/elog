@@ -178,3 +178,4 @@ git clone https://github.com/JeffersonLab/bootstrap_logbooks.git
 drush pm-enable elog 
 ````
 
+**The Logbook Server is now ready to be configured using the Drupal Admin interface.**

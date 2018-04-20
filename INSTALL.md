@@ -32,6 +32,8 @@ enable=1
 After the file is in place, install MariaDB with
 ````
 sudo yum install MariaDB-server MariaDB-client
+sudo systemctl start mariadb
+sudo mysql_secure_installation
 ````
 
 ## Install PHP 7 (optional)
@@ -47,21 +49,103 @@ yum remove php-common
 
 Create a Webtatic repo:
 ````
-rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm
+sudo rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+sudo rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm
 ````
 
 Install PHP 7.1 packages
 ````
-yum install -y  php71w-common php71w-opcache php71w php71w-cli
-yum install -y  php71w-opcache php71w-devel php71w-mysqlnd
-yum install -y  php71w-pecl-xdebug
-yum install -y  php71w-process php71w-xml php71w-pdo
-yum install -y  php71w-mcrypt php71w-mbstring php71w-ldap
-yum install -y  php71w-gd php71w-soap
-yum install -y  yum-plugin-replace
-yum install php-pear-Mail-Mime
+sudo yum install -y php71w-common php71w-opcache php71w php71w-cli
+sudo yum install -y php71w-opcache php71w-devel php71w-mysqlnd
+sudo yum install -y php71w-pecl-xdebug
+sudo yum install -y php71w-process php71w-xml php71w-pdo
+sudo yum install -y php71w-mcrypt php71w-mbstring php71w-ldap
+sudo yum install -y php71w-gd php71w-soap
+sudo yum install -y yum-plugin-replace
+sudo yum install -y php-pear-Mail-Mime
 ````
 
 ## Install Drupal
 
+### Create a Database
+````mysql
+create database logbooks
+grant all privileges on logbooks.* to "logbooks_owner"@"localhost" identified by "YourPassword";
+````
+
+### Download & Install Core Drupal 7
+In this example, Drupal will be installed in a version-specific directory beneath /var/www.  A symbolic link 
+named _html_ will point to the current version as the web server's document root.
+
+````bash
+cd /var/www
+sudo mv html html.dist
+sudo wget https://ftp.drupal.org/files/projects/drupal-7.58.tar.gz
+sudo tar xf drupal-7.58.tar.gz 
+sudo ln -s drupal-7.58 html
+cd drupal-7.58
+ln -s ../files files
+cd sites/default
+ln -s ../../../files files
+````
+
+Create a directory independent of Drupal version to contain file content.
+````bash
+cd /var/www
+sudo mkdir files
+sudo chown apache files
+````
+
+Create a settings.php file
+````bash
+cd /var/www/drupal-7.58/sites/default
+cp default_settings.php settings.php
+````
+Now edit the settings.php and enter the settings for the database created earlier.
+
+````bash
+# Need Example here
+````
+
+Now install Drupal using its web-based installer which can be accessed via http://yourhost/install.php.
+
+Choose the "Standard" install profile.
+
+### Download & Install Drupal Modules
+
+#### Drush
+
+The preferred way to download and enable modules is using the Drupal Shell (aka drush), which can be installed as follows:
+````bash
+sudo wget https://github.com/drush-ops/drush/releases/download/8.1.13/drush.phar
+sudo mv drush.phar /usr/local/bin/drush
+sudo chmod 755 /usr/local/bin/drush
+````
+Note that in order to use drush from behind a proxy, you can something equivalent to the following to ~/.wgetrc
+````
+use_proxy = on
+https_proxy = http://proxy.your.org:8081
+http_proxy = http://proxy.your.org:8081
+````
+
+#### Third-party Modules
+
+````bash
+# Download
+drush pm-download admin_menu bootstrap_library collapsiblock ctools
+drush pm-download date devel diff field_group filefield_paths
+drush pm-download jquery_update libraries pathauto serial 
+drush pm-download taxonomy_menu token
+drush pm-download htmlmail mimemail mailsystem
+drush pm-download htmlawed 
+drush pm-download js 
+# Enable
+drush pm-enable admin_menu bootstrap_library collapsiblock ctools
+drush pm-enable date date_popup devel diff field_group filefield_paths
+drush pm-enable jquery_update libraries pathauto serial 
+drush pm-enable taxonomy_menu token
+drush pm-enable htmlmail mimemail mailsystem mailmime
+drush pm-enable htmLawed 
+````
+
+#### Drupal Libraries

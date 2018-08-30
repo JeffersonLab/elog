@@ -288,13 +288,37 @@ class LogentryQuery extends AbstractQuery {
     $query->leftJoin('elog_attachment_statistics', 'eas', 'n.nid = eas.nid');
     $query->addExpression('eas.file_count + eas.image_count', 'attachment_count');
 
+    
+    /*
+     * On the four lines below, we join the logbook field data twice.
+     * The first couplet is to ensure that we retrieve and include all of the
+     * book_tids for an entry in our result set.  The second couplet is to
+     * be used for limiting the query to one or more logbooks. 
+     * 
+     * Put another way, when querying for all of the entries in the ELOG, 
+     * we still want the results to tell us if some of the results were also
+     * posted to CLOG or BUBBLELOG, or whatever.  That's the purpose of the
+     * repetition.
+     */
+    // For results
     $query->leftJoin('field_data_field_logbook', 'b', 'n.nid = b.entity_id');
     $query->addExpression('GROUP_CONCAT(DISTINCT(b.field_logbook_tid))', 'book_tids');
-
+    // For query where clause filtering  
+    $query->leftJoin('field_data_field_logbook', 'bf', 'n.nid = bf.entity_id');
+    $query->addExpression('GROUP_CONCAT(DISTINCT(bf.field_logbook_tid))', 'book_tids_filter');
+    
+    /*
+     * Same logic for the four lines below as described abvove for field_data_field_logbook 
+     */
+    // For results
     $query->leftJoin('field_data_field_tags', 't', 'n.nid = t.entity_id'); //JOIN node with tags
     $query->addExpression('GROUP_CONCAT(DISTINCT(t.field_tags_tid))', 'tag_tids');
+    // For query where clause filtering  
+    $query->leftJoin('field_data_field_tags', 'tf', 'n.nid = tf.entity_id'); //JOIN node with tags
+    $query->addExpression('GROUP_CONCAT(DISTINCT(tf.field_tags_tid))', 'tag_tids_filter');
 
-
+    
+    
     if (field_info_instance('node', 'field_downtime', 'logentry')){
       $query->leftJoin('field_data_field_downtime', 'dt', 'n.nid = dt.entity_id');
       $query->fields('dt', array('field_downtime_time_down'));
@@ -388,12 +412,12 @@ class LogentryQuery extends AbstractQuery {
     // Since the field tags is a taxonomy_term_reference, 
     // we are looking for a "tid".
     if (count($this->logbooks) > 0) {
-      $query->condition('b.field_logbook_tid', array_keys($this->logbooks), 'IN');
+      $query->condition('bf.field_logbook_tid', array_keys($this->logbooks), 'IN');
     }
 
 
     if (count($this->tags) > 0) {
-      $query->condition('t.field_tags_tid', array_keys($this->tags), 'IN');
+      $query->condition('tf.field_tags_tid', array_keys($this->tags), 'IN');
     }
 
     // Need a subquery to exclude tags

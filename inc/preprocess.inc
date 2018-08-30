@@ -283,17 +283,25 @@ function elog_preprocess_logentry(array &$vars) {
       }
     }
   }
-
+  
   // Need to get the images variable before the body because we may need 
   // to place one or more urls inline in the body.
   $images = array();
   $field = field_get_items('node', $vars['node'], 'field_image');
   if (! empty($field)) {
     foreach ($field as $delta => $item){
-      //mypr($item);
-//      $images[$delta] = drupal_render(field_view_value('node', $vars['node'], 
-//                            'field_image', $field[$delta], $vars['view_mode']));
-
+        // Force creation of the plentybig image style.
+        // This is an attempt to force the image derivative to exist
+        // when an email of a logentry gets sent before anybody has 
+        // had a chance to force on-demand creation of the image style
+        // which typically happens when the image is accessed via web
+        // browser.
+        // Attempts to address https://jira.acc.jlab.org/browse/ELOGWEB-11
+       $derivative_uri = image_style_path('plentybig', $item['uri']);
+        if (!file_exists($derivative_uri)) {         
+          image_style_create_derivative($style, $item['uri'], $derivative_uri);
+        }
+      
       $images[$delta] = field_view_value('node', $vars['node'], 
                             'field_image', $field[$delta], $vars['view_mode']);
       

@@ -120,7 +120,7 @@ function elog_get_deleted_subdir() {
  * @return type
  */
 function elog_get_lognumber($node) {
-  if ($node->type == 'logentry') {
+  if ($node && $node->type == 'logentry') {
     $lang = $node->language;
     if (isset($node->field_lognumber)){
       return $node->field_lognumber[$lang][0]['value'];

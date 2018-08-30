@@ -129,6 +129,23 @@ function elog_get_lognumber($node) {
   return NULL;
 }
 
+/**
+ * Convenience function to return a simple array
+ * of the names of the logbooks for an entry.
+ * 
+ * a node of type logentry
+ * @param type $node
+ * @return type
+ */
+function elog_get_logbook_names($node) {
+  $items = array();
+  if ($node && $node->type == 'logentry') {
+    foreach (field_get_items('node', $node, 'field_logbook') as $item){
+      $items[$item['tid']] = $item['taxonomy_term']->name;
+    }    
+  }
+  return $items;
+}
 
 /**
  * Returns an array of pseudo users in the form

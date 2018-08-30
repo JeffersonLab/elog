@@ -251,7 +251,8 @@ function elog_preprocess_logentry(array &$vars) {
   // Publication date, formatted with time element
   $vars['date'] = format_date($vars['node']->created, 'custom', 'D, m/d/Y - H:i');
   $vars['datetime'] = format_date($vars['node']->created, 'custom', 'Y-m-d\TH:i:sO'); // PHP 'c' format is not proper ISO8601!
-  $vars['publication_date'] = '<time datetime="' . $vars['datetime'] . '" pubdate="pubdate">' . $vars['date'] . '</time>';
+  $vars['date_linked'] = _elog_link_to_logbook_date($vars['node']->created, $vars['date'], elog_get_logbook_names($vars['node']));
+  $vars['publication_date'] = '<time datetime="' . $vars['datetime'] . '" pubdate="pubdate">' . $vars['date_linked'] . '</time>';
   $vars['name'] = $vars['node']->name;
   $vars['node_url'] = '/'.drupal_get_path_alias('node/'. $vars['node']->nid);
   
@@ -412,6 +413,18 @@ function elog_preprocess_user_profile(array &$vars){
   
 }
 
+
+function _elog_link_to_logbook_date($timeStamp, $dateString, $logbooks){
+  global $base_url;
+  $url = sprintf("%s/entries?start_date=%s&end_date=%s",
+      $base_url, $timeStamp-3600, $timeStamp+3600);
+  foreach ($logbooks as $book){
+    $url .= '&book='.$book;
+  }
+  
+  return sprintf("<a href=\"%s\">%s</a>", $url, $dateString);
+  
+}
 
 /**
  * Returns the field_attach field as an array of rendered entities

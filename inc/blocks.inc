@@ -473,7 +473,9 @@ function elog_get_useful_links($logbooks) {
   if (count($logbooks) > 0) {
     $query->fieldCondition('field_logbook', 'tid', array_keys($logbooks));
   }
-
+  //dpm(entity_get_info()); 
+  //dpm(field_info_fields()); 
+  $query->fieldOrderBy('field_link','title','asc');
   // @todo by weight?
   //$query->propertyOrderBy('changed', 'desc');
 

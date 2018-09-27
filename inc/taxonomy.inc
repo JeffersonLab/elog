@@ -105,9 +105,9 @@ function get_taxonomy_vid_by_name($name) {
 }
 
 /**
- * Returns the vid of the named vocabulary
+ * Returns the terms in the named vocabulary
  * @param string $name 
- * @return mixed integer or null
+ * @return array
  */
 function get_taxonomy_terms_by_vocab($name) {
   $terms = array();
@@ -237,6 +237,23 @@ function elog_taxonomy_get_leaf_terms($tree){
   $terms = array();
   foreach ($tree as $term){
     if ($term->depth == $tree_depth) {
+      $terms[] = $term;
+    }
+  }
+  return $terms;
+}
+
+
+/**
+ * Returns only the root node terms of the provided taxonomy term tree.
+ * @param array $tree
+ * @return array of taxonomy terms
+ */
+function elog_taxonomy_get_root_terms($tree){
+  //Note that a flat single level tree will be max depth=0
+  $terms = array();
+  foreach ($tree as $term){
+    if ($term->depth == 0) {
       $terms[] = $term;
     }
   }

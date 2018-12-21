@@ -335,41 +335,41 @@ function elog_date_popup_process_alter(&$element, &$form_state, &$context) {
  * rather than /js
  * @return type
  */
-function elog_js() {
-  return array(
-    'logbooks' => array(// /api/elog/logbooks
-      'callback' => 'elog_api_logbooks',
-      'dependencies' => array('taxonomy', 'elog'),
-      'bootstrap' => DRUPAL_BOOTSTRAP_DATABASE,
-      'file' => 'inc/api.inc',
-      'skip_hook_init' => FALSE,
-    ),
-    'tags' => array(// /api/elog/tags
-      'callback' => 'elog_api_tags',
-      'dependencies' => array('taxonomy', 'elog'),
-      'bootstrap' => DRUPAL_BOOTSTRAP_DATABASE,
-      'file' => 'inc/api.inc',
-      'skip_hook_init' => FALSE,
-    ),
-    'entries' => array(// /api/elog/entries
-      'callback' => 'elog_api_entries',
-      'dependencies' => array('taxonomy', 'elog', 'entity', 'field'),
-      'bootstrap' => DRUPAL_BOOTSTRAP_FULL,
-      'file' => 'inc/api.inc',
-      //'access arguments' => array('e.g. permission'),
-      //'access callback'  => 'callback function',
-      'page arguments' => array(1),
-      'skip_hook_init' => FALSE,
-    ),
-    'announcements' => array( // /api/elog/announcements
-      'callback' => 'elog_api_announcements',
-      'dependencies' => array('elog'),
-      'bootstrap' => DRUPAL_BOOTSTRAP_DATABASE,
-      'file' => 'inc/api.inc',
-      'skip_hook_init' => FALSE,
-    ),
-  );
-}
+//function elog_js() {
+//  return array(
+//    'logbooks' => array(// /api/elog/logbooks
+//      'callback' => 'elog_api_logbooks',
+//      'dependencies' => array('taxonomy', 'elog'),
+//      'bootstrap' => DRUPAL_BOOTSTRAP_DATABASE,
+//      'file' => 'inc/api.inc',
+//      'skip_hook_init' => FALSE,
+//    ),
+//    'tags' => array(// /api/elog/tags
+//      'callback' => 'elog_api_tags',
+//      'dependencies' => array('taxonomy', 'elog'),
+//      'bootstrap' => DRUPAL_BOOTSTRAP_DATABASE,
+//      'file' => 'inc/api.inc',
+//      'skip_hook_init' => FALSE,
+//    ),
+//    'entries' => array(// /api/elog/entries
+//      'callback' => 'elog_api_entries',
+//      'dependencies' => array('taxonomy', 'elog', 'entity', 'field'),
+//      'bootstrap' => DRUPAL_BOOTSTRAP_FULL,
+//      'file' => 'inc/api.inc',
+//      //'access arguments' => array('e.g. permission'),
+//      //'access callback'  => 'callback function',
+//      'page arguments' => array(1),
+//      'skip_hook_init' => FALSE,
+//    ),
+//    'announcements' => array( // /api/elog/announcements
+//      'callback' => 'elog_api_announcements',
+//      'dependencies' => array('elog'),
+//      'bootstrap' => DRUPAL_BOOTSTRAP_DATABASE,
+//      'file' => 'inc/api.inc',
+//      'skip_hook_init' => FALSE,
+//    ),
+//  );
+//}
 
 /**
  * Implements hook_init
@@ -1001,7 +1001,7 @@ function elog_form_logentry_node_form_alter(&$form, &$form_state, $form_id) {
     if (!empty($orig_node)) {
       // Set a suggested title for followup entries
       $form['title']['#default_value'] = t('Follow-up Re: ') . $orig_node->title;
-      mypr($orig_node);
+      //mypr($orig_node);
       $form['field_logbook'][$lang]['#default_value'] = elog_get_term_ref_field_items($orig_node->field_logbook, $lang);
       $form['field_tags'][$lang]['#default_value'] = elog_get_term_ref_field_items($orig_node->field_tags, $lang);
       $notifications = elog_get_text_field_items($orig_node->field_notify, $lang);
@@ -1721,7 +1721,25 @@ function elog_comments_by_entry($lognumber) {
  * @param type $var
  */
 function elog_test($var) {
-  
+  global $user;
+  $block = '';
+    $list = elog_get_useful_links(array());
+    mypr($list);
+    $content = array(
+      'content' => array(
+        'type' => 'markup',
+        '#markup' => $list,
+        '#prefix' => '<div class="block-content cols3">',
+        '#suffix' => '</div>',
+      ),
+    );
+
+    $block = array(
+      'subject' => t('Useful Links'),
+      'content' => $content,
+    );
+  return $block;
+  die;
   elog_taxonomy_update_schema();
   die;
   $groups = jlab_auth_check_ldap('someuser', '###');

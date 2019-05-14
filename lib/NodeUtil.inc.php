@@ -22,6 +22,8 @@ class NodeUtil {
    'webrun'   => TRUE,
    'ccelog'   => TRUE,
    'glassfish'=> TRUE,
+   'misweb' => TRUE,
+   'wildfly' => TRUE,
    'elogsoapsvc' => TRUE,
    'ssgpssdisp' => TRUE,
  );

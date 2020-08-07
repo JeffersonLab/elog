@@ -299,7 +299,7 @@ function elog_preprocess_logentry(array &$vars) {
         // Attempts to address https://jira.acc.jlab.org/browse/ELOGWEB-11
        $derivative_uri = image_style_path('plentybig', $item['uri']);
         if (!file_exists($derivative_uri)) {         
-          image_style_create_derivative($style, $item['uri'], $derivative_uri);
+          image_style_create_derivative(image_style_load('plentybig'), $item['uri'], $derivative_uri);
         }
       
       $images[$delta] = field_view_value('node', $vars['node'], 

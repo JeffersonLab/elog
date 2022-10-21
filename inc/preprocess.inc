@@ -326,34 +326,36 @@ function elog_preprocess_logentry(array &$vars) {
   $vars['body'] = '';
   if (! empty($vars['node']->body)){
     $field = field_get_items('node', $vars['node'], 'body');
-    $field_view = field_view_value('node', $vars['node'], 'body', $field[0],$vars['view_mode']);
-    $body = drupal_render($field_view);
-    
-    if (preg_match_all('/\[figure:\d+\]/mi',$body,$m)) {
-    
-      foreach ($m[0] as $token) {
-    
-        if (preg_match('/^\[figure:(\d+)\]$/i', $token, $t)) {
-    
-          $image_num = $t[1] - 1;
-    
-          if (! empty($images)) {
-            if (array_key_exists($image_num, $images)){
-              $url = '<div class="image-wrapper">'.drupal_render($images[$image_num]).'</div>';
-    
-              $body = str_replace($token,$url,$body);
-              unset($images[$image_num]);
-              //mypr($vars['content']['body'][0]['#markup']);
-            }else{
-              // Setting a warning here is problematic because it won't show up until
-              // the next page view -- it's too late for showing on this page.
-              //drupal_set_message("$token not found in attached images", 'warning');
+    if (! empty($field)) {
+        $field_view = field_view_value('node', $vars['node'], 'body', $field[0], $vars['view_mode']);
+        $body = drupal_render($field_view);
+
+        if (preg_match_all('/\[figure:\d+\]/mi', $body, $m)) {
+
+            foreach ($m[0] as $token) {
+
+                if (preg_match('/^\[figure:(\d+)\]$/i', $token, $t)) {
+
+                    $image_num = $t[1] - 1;
+
+                    if (!empty($images)) {
+                        if (array_key_exists($image_num, $images)) {
+                            $url = '<div class="image-wrapper">' . drupal_render($images[$image_num]) . '</div>';
+
+                            $body = str_replace($token, $url, $body);
+                            unset($images[$image_num]);
+                            //mypr($vars['content']['body'][0]['#markup']);
+                        } else {
+                            // Setting a warning here is problematic because it won't show up until
+                            // the next page view -- it's too late for showing on this page.
+                            //drupal_set_message("$token not found in attached images", 'warning');
+                        }
+                    }
+                }
             }
-          }
         }
-      }
+        $vars['body'] = $body;
     }
-    $vars['body'] = $body;
   }
   // Any remaining images get captions prepended
   foreach ($images as $delta=>$item){

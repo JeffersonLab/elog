@@ -551,7 +551,7 @@ function _elog_get_dtm_links() {
   $event_id_locations = array(
     '1' => 'Accelerator',
     '2' => 'Hall A',
-    '3' => 'HAll B',
+    '3' => 'Hall B',
     '4' => 'Hall C',
     '5' => 'Hall D',
   );

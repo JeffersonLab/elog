@@ -104,6 +104,7 @@ function email_autocomplete($string) {
       //search table `article` for Article that begin with the letters the user enters in the form
       $query = db_select('users', 'u');
       $query->fields('u', array('mail'));
+      $query->condition('u.status','1','=');
       $query->leftJoin('field_data_field_first_name', 'f', 'u.uid = f.entity_id');
       $query->addField('f', 'field_first_name_value', 'first');
       $query->leftJoin('field_data_field_last_name', 'l', 'u.uid = l.entity_id');   

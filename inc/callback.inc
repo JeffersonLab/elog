@@ -25,6 +25,7 @@ function entrymaker_autocomplete($string) {
     if (strlen($last_piece) > 2){
       $query = db_select('users', 'u');
       $query->fields('u', array('name'));
+      $query->condition('u.status','1','=');
       $query->leftJoin('field_data_field_first_name', 'f', 'u.uid = f.entity_id');
       $query->addField('f', 'field_first_name_value', 'first');
       $query->leftJoin('field_data_field_last_name', 'l', 'u.uid = l.entity_id');   
